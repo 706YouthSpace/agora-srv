@@ -4,7 +4,8 @@
   "description": "node.js server of x706",
   "main": "build/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "rsync -a --exclude '*.ts' --delete-excluded  src/ build/ && tsc -p ./tsconfig.json"
   },
   "author": "yanlong.wang@naiver.org",
   "license": "AGPL-3.0",
