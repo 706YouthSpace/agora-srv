@@ -70,6 +70,11 @@ export class MongodbClient extends DatabaseClient<MongoClient> {
 
         return this.mongoClientPromise;
     }
+
+    database(name: string) {
+        // tslint:disable-next-line: no-use-before-declare
+        return new MongoDatabase(this, name);
+    }
 }
 
 export const MONGO_ACTUAL_RESULT = Symbol('Actual mongo result');
@@ -152,7 +157,7 @@ export class MongoCollection<TSchema = any> {
     async findOneAndDelete(filter: FilterQuery<TSchema>, options?: FindOneAndDeleteOption) {
         const coll = await this.collection;
 
-        const result = await coll.findOneAndDelete(filter, this._patchOptions(options));
+        const val: MongoActualResultMixin<typeof result> & Promise<typeof result.value> = Promise.resolve(result.value) as any;
 
         if (!result.value) {
             const val: any = Promise.resolve(result.value);
@@ -174,7 +179,7 @@ export class MongoCollection<TSchema = any> {
         const result = await coll.findOneAndReplace(filter, replacement, this._patchOptions(options));
 
         if (!result.value) {
-            const val: any = Promise.resolve(result.value);
+            const val: MongoActualResultMixin<typeof result> & Promise<typeof result.value> = Promise.resolve(result.value) as any;
             val[MONGO_ACTUAL_RESULT] = result;
 
             return val;
@@ -194,7 +199,7 @@ export class MongoCollection<TSchema = any> {
         const result = await coll.findOneAndUpdate(filter, update, this._patchOptions(options));
 
         if (!result.value) {
-            const val: any = Promise.resolve(result.value);
+            const val: MongoActualResultMixin<typeof result> & Promise<typeof result.value> = Promise.resolve(result.value) as any;
             val[MONGO_ACTUAL_RESULT] = result;
 
             return val;
@@ -329,6 +334,10 @@ export class MongoDatabase {
         }
 
         return client.then((x) => x.db(this.dbName));
+    }
+
+    collection(collectionName: string) {
+        return new MongoCollection(this.mongoClient, this.dbName, collectionName);
     }
 
 
