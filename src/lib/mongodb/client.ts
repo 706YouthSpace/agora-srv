@@ -157,7 +157,7 @@ export class MongoCollection<TSchema = any> {
     async findOneAndDelete(filter: FilterQuery<TSchema>, options?: FindOneAndDeleteOption) {
         const coll = await this.collection;
 
-        const val: MongoActualResultMixin<typeof result> & Promise<typeof result.value> = Promise.resolve(result.value) as any;
+        const result = await coll.findOneAndDelete(filter, this._patchOptions(options));
 
         if (!result.value) {
             const val: any = Promise.resolve(result.value);

@@ -326,7 +326,7 @@ export class SharedStateManager extends EventEmitter {
         // tslint:disable-next-line: no-this-assignment
         const manager = this;
 
-        state.next = async function (this: T) {
+        state.next = async function (this: SharedState<T>) {
             const padding = this.offset || manager.defaultPadding;
             let lock: Redlock.Lock;
             while (true) {
