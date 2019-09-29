@@ -46,3 +46,23 @@ export function timeout(ms: number) {
 
     return deferred.promise;
 }
+
+function _vectorize(obj: object, stack: string[] = []) {
+    const vectors: Array<[string, any]> = [];
+    for (const x in obj) {
+        if (obj.hasOwnProperty(x)) {
+            const val = (obj as any)[x];
+            if (typeof val === 'object' && !Array.isArray(val)) {
+                vectors.push(..._vectorize(val, stack.concat(x)));
+            } else {
+                vectors.push([stack.concat(x).join('.'), val]);
+            }
+        }
+    }
+
+    return vectors;
+}
+
+export function vectorize(obj: object) {
+    return _.fromPairs(_vectorize(obj));
+}

@@ -1294,6 +1294,7 @@ export class WxPlatformService extends EventEmitter {
         return result as WeChatErrorReceipt;
     }
 
+
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
     async wxaExchangeForSessionKey(appId: string, code: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
@@ -1308,6 +1309,25 @@ export class WxPlatformService extends EventEmitter {
                 grant_type: 'authorization_code',
                 component_appid: this.config.appId,
                 component_access_token: componentAccessToken
+            }
+        );
+
+        return result as WxaLoginReceipt;
+    }
+
+    @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
+    async wxaLogin(code: string, appId?: string, appSecret?: string) {
+        
+        const realAppId = appId || this.config.appId;
+        const realAppSecret = appSecret || this.config.appSecret;
+
+        const result = await this._getRequest(
+            'https://api.weixin.qq.com/sns/component/jscode2session',
+            {
+                appid: realAppId,
+                secret: realAppSecret,
+                js_code: code,
+                grant_type: 'authorization_code'
             }
         );
 

@@ -1,5 +1,0 @@
-{
-
-    "mongoUrl": "mongodb://db1.local.naiver.org:27017",
-    "mongoDatabase": "x706"
-}

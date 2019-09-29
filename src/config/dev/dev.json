@@ -1,0 +1,27 @@
+{
+    "mongoUrl": "mongodb://db1.local.naiver.org:27017",
+    "mongoDatabase": "x706",
+    "redis": {
+        "host": "db2.local.naiver.org",
+        "port": 6379
+    },
+    "wechat": {
+        "appId": "wxcba08e00acb7c966",
+        "appSecret": "a60068c681f913064f06150f6fb3f101",
+        "signatureToken": "qJMXRUNfdr76dTveZ7QuRQHRonFrQgh9",
+        "aesEncryptionKey": "1zRpONewtPK9UMqzXVLLEA7rOsGxJn2QcvqME3eLgqQ",
+        "callbackBaseUri": "/",
+        "serviceHosts": [
+            "x706.access.naiver.org",
+            "gw.naiver.org"
+        ],
+        "webviewHosts": [
+            "x706.access.naiver.org",
+            "gw.naiver.org",
+            "mp.weixin.qq.com"
+        ]
+    },
+    "seed": {
+        "sessionHasher": "x706"
+    }
+}

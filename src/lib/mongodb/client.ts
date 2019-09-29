@@ -82,6 +82,36 @@ export interface MongoActualResultMixin<T = any> {
     [MONGO_ACTUAL_RESULT]: T;
 }
 
+// const MONGO_CURSOR_FIND_DIRECT_OPTIONS = new Set([
+//     'batchSize', 'collation', 'comment', 'hint', 'limit', 'max', 'maxAwaitTimeMS', 'maxScan', 'maxTimeMS',
+//     'maxScan', 'maxTimeMS', 'min', 'project', 'returnKey', 'showRecordId', 'skip', 'snapshot', 'sort'
+// ]);
+// const MONGO_CURSOR_FIND_WRAPPED_OPTIONS = new Set([
+//     'flags', 'options', 'readPreference', 'projection'
+// ]);
+
+// export interface CursorFindOptions {
+//     flags?: { [k: string]: boolean };
+//     batchSize?: number;
+//     collation?: CollationDocument;
+//     comment?: string;
+//     hint?: string | object;
+//     limit?: number;
+//     max?: object;
+//     maxAsaitTimeMS?: number;
+//     maxScan?: object;
+//     maxTimeMS?: number;
+//     min?: object;
+//     project?: { [k: string]: any };
+//     returnKey?: object;
+//     options?: { [k: string]: object };
+//     readPreference?: ReadPreference;
+//     showRecordId?: object;
+//     skip?: number;
+//     snapshot?: object;
+//     sort?: object | object[];
+// }
+
 export class MongoCollection<TSchema = any> {
     mongoClient: MongodbClient;
     dbName: string;
@@ -154,7 +184,7 @@ export class MongoCollection<TSchema = any> {
         return Promise.resolve(docWithIds);
     }
 
-    async findOneAndDelete(filter: FilterQuery<TSchema>, options?: FindOneAndDeleteOption) {
+    async findOneAndDelete(filter: FilterQuery<TSchema>, options?: FindOneAndDeleteOption): Promise<(TSchema & MongoActualResultMixin) | undefined> {
         const coll = await this.collection;
 
         const result = await coll.findOneAndDelete(filter, this._patchOptions(options));
@@ -174,7 +204,11 @@ export class MongoCollection<TSchema = any> {
         return doc;
     }
 
-    async findOneAndReplace(filter: FilterQuery<TSchema>, replacement: object, options?: FindOneAndReplaceOption) {
+    async findOneAndReplace(
+        filter: FilterQuery<TSchema>,
+        replacement: object,
+        options?: FindOneAndReplaceOption
+    ): Promise<(TSchema & MongoActualResultMixin) | undefined> {
         const coll = await this.collection;
         const result = await coll.findOneAndReplace(filter, replacement, this._patchOptions(options));
 
@@ -182,7 +216,7 @@ export class MongoCollection<TSchema = any> {
             const val: MongoActualResultMixin<typeof result> & Promise<typeof result.value> = Promise.resolve(result.value) as any;
             val[MONGO_ACTUAL_RESULT] = result;
 
-            return val;
+            return val as any;
         }
 
         const doc: TSchema & MongoActualResultMixin<typeof result> = {
@@ -194,7 +228,11 @@ export class MongoCollection<TSchema = any> {
 
     }
 
-    async findOneAndUpdate(filter: FilterQuery<TSchema>, update: UpdateQuery<TSchema> | TSchema, options?: FindOneAndUpdateOption) {
+    async findOneAndUpdate(
+        filter: FilterQuery<TSchema>,
+        update: UpdateQuery<TSchema> | TSchema,
+        options?: FindOneAndUpdateOption
+    ): Promise<(TSchema & MongoActualResultMixin) | undefined> {
         const coll = await this.collection;
         const result = await coll.findOneAndUpdate(filter, update, this._patchOptions(options));
 
@@ -202,7 +240,7 @@ export class MongoCollection<TSchema = any> {
             const val: MongoActualResultMixin<typeof result> & Promise<typeof result.value> = Promise.resolve(result.value) as any;
             val[MONGO_ACTUAL_RESULT] = result;
 
-            return val;
+            return val as any;
         }
 
         const doc: TSchema & MongoActualResultMixin<typeof result> = {
@@ -211,6 +249,18 @@ export class MongoCollection<TSchema = any> {
         } as any;
 
         return doc;
+    }
+
+    async simpleFind(query: FilterQuery<TSchema>, options?: FindOneOptions) {
+        const cursor = await this.find(query, options);
+
+        return cursor.toArray();
+    }
+
+    async steamFind(query: FilterQuery<TSchema>, options?: FindOneOptions) {
+        const cursor = await this.find(query, options);
+
+        return cursor.stream();
     }
 
 }
@@ -336,8 +386,8 @@ export class MongoDatabase {
         return client.then((x) => x.db(this.dbName));
     }
 
-    collection(collectionName: string) {
-        return new MongoCollection(this.mongoClient, this.dbName, collectionName);
+    collection(collectionName: string, overridingClass: any = MongoCollection) {
+        return new overridingClass(this.mongoClient, this.dbName, collectionName);
     }
 
 
