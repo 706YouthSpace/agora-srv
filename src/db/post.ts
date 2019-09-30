@@ -21,6 +21,9 @@ export interface Post {
     images?: string[];
     video?: string;
     attachments?: { [k: string]: string };
+
+    createdAt: number;
+    updatedAt: number;
 }
 
 const TITLE_MAX_LENGTH = 128;
@@ -63,14 +66,15 @@ export class PostMongoOperations extends MongoCollection<Post> {
 
     newPost(draft: Partial<Post>) {
         const sanitized = this.sanitizePost(draft);
+        const ts = Date.now();
 
-        return this.insertOne(sanitized as any);
+        return this.insertOne({ ...sanitized, createdAt: ts, updatedAt: ts } as any);
     }
 
     setToPost(id: ObjectId, draft: Partial<Post>) {
         const sanitized = this.sanitizePost(draft);
 
-        return this.findOneAndUpdate({ _id: id }, vectorize(sanitized));
+        return this.findOneAndUpdate({ _id: id }, { $set: { ...vectorize(sanitized), updatedAt: Date.now() } });
     }
 
 }
