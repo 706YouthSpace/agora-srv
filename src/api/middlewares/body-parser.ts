@@ -21,6 +21,7 @@ export type UploadedFile = FancyFile & {
     field?: string;
     claimedName?: string;
     claimedContentType?: MIMEVec | null;
+    claimedMime?: string;
 };
 
 export interface ContextFileUtils {
@@ -61,6 +62,7 @@ export async function multiParse(ctx: ParsedContext & ContextFileUtils, next: ()
         const fieldName = decodeURIComponent(_fieldName);
         file.field = fieldName;
         file.claimedName = fileName;
+        file.claimedMime = mimeType;
         file.claimedContentType = parseContentType(mimeType);
         if (fieldName.endsWith('[]')) {
             const realFieldName = fieldName.slice(0, fieldName.length - 2);

@@ -32,6 +32,21 @@ const validatorRules: any = [
     ['password', /^[a-zA-Z0-9\-_\.\=]{6,21}$/, '[a-Z][a-Z0-9-_.=]{6,21}'],
     ['ObjectId', (val: any) => ObjectId.isValid(val), 'Valid bson ObjectId'],
     [
+        'ObjectId[]',
+        (val: any) => {
+            if (!Array.isArray(val) && val.length) {
+                return false;
+            }
+            for (const x of val) {
+                if (!ObjectId.isValid(x)) {
+                    return false;
+                }
+            }
+
+            return true;
+        },
+        'Compact array of valid bson ObjectId'],
+    [
         'list',
         (val: any, l1?: number, l2?: number) => {
             if (!Array.isArray(val)) {

@@ -23,5 +23,8 @@
     },
     "seed": {
         "sessionHasher": "x706"
+    },
+    "storage": {
+        "sha256Root": "/data/sha256storage"
     }
 }

@@ -96,13 +96,11 @@ export class StorageManager {
         }
         let targetDir = dirName;
         let targetName = fileName;
-        let dirIsNew = false;
         if (!targetDir) {
-            dirIsNew = true;
             targetDir = await this.randomName();
         }
         if (!targetName) {
-            if (!dirIsNew && ! await this.alreadyStored(targetDir, this.defaultFileName)) {
+            if (! await this.alreadyStored(targetDir, this.defaultFileName)) {
                 targetName = this.defaultFileName;
             } else {
                 targetName = await this.randomName();
@@ -149,13 +147,11 @@ export class StorageManager {
         stream.pause();
         let targetDir = dirName;
         let targetName = fileName;
-        let dirIsNew = false;
         if (!targetDir) {
-            dirIsNew = true;
             targetDir = await this.randomName();
         }
         if (!targetName) {
-            if (!dirIsNew && ! await this.alreadyStored(targetDir, this.defaultFileName)) {
+            if (!await this.alreadyStored(targetDir, this.defaultFileName)) {
                 targetName = this.defaultFileName;
             } else {
                 targetName = await this.randomName();
@@ -219,13 +215,13 @@ export class StorageManager {
         return randomBuff.toString('hex');
     }
 
-    getStream(dirName: string, fileName: string = this.defaultFileName, options?: { start: number, end: number }): Promise<fs.ReadStream> {
+    getStream(dirName: string, fileName: string = this.defaultFileName, options?: { start: number; end: number }): Promise<fs.ReadStream> {
         const fPath = this.fullPath(dirName, fileName);
 
         return this.getLocalStream(fPath, options);
     }
 
-    getLocalStream(fpath: string, options?: { start: number, end: number }): Promise<fs.ReadStream> {
+    getLocalStream(fpath: string, options?: { start: number; end: number }): Promise<fs.ReadStream> {
         return new Promise((resolve, reject) => {
             pathExists(fpath, (err, exists) => {
                 if (exists) {
