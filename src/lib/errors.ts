@@ -30,6 +30,7 @@ const knoledgeBase = new Map<number, string>([
     [40303, 'Not authorized'],
     [40304, 'Invalid signature'],
     [40305, 'Forbidden by external service'],
+    [40306, 'Resource aged out'],
 
 
     [40400, 'Not Found'],
@@ -122,6 +123,7 @@ const knoledgeBase = new Map<number, string>([
 
 
     [45100, 'Unavailable For Legal Reasons'],
+    [45101, 'Blocked'],
 
 
     [50000, 'Internal Server Error'],

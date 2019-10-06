@@ -4,17 +4,13 @@
 import { Readable } from 'stream';
 import { open, write, stat, Stats, close, unlink, createReadStream, createWriteStream } from 'fs';
 import { basename, extname } from 'path';
-import xattr from 'fs-xattr';
 
 import { Defer, Deferred } from './defer';
 import { HashManager } from './hash';
-import { mimeOf, MIMEVec, parseContentType, restoreContentType } from './mime';
+import { mimeOf, MIMEVec, parseContentType } from './mime';
 
 // tslint:disable-next-line:no-magic-numbers
 const PEEK_BUFFER_SIZE = 32 * 1024;
-
-export const SHA256_XATTR_KEY = `user.${'sha256Sum'}`;
-export const CONTENT_TYPE_XATTR_KEY = `user.${'contentType'}`;
 
 const sha256Hasher = new HashManager('sha256', 'hex');
 
@@ -86,41 +82,11 @@ export class FancyFile {
         });
         if (partialFile.sha256Sum) {
             fileInstance.sha256Sum = partialFile.sha256Sum;
-        } else {
-            xattr.get(filePath, SHA256_XATTR_KEY, (err: any, value: any) => {
-                if (err || !value) {
-                    fileInstance.sha256Sum = fileInstance.createReadStream()
-                        .then((r) => sha256Hasher.hashStream(r) as Promise<string>);
-                    fileInstance.sha256Sum.then(((x) => {
-                        if (x) {
-                            xattr.set(filePath, SHA256_XATTR_KEY, x);
-                        }
-                    }));
-
-                    return;
-                }
-                fileInstance.sha256Sum = value.toString('utf8');
-            });
         }
         if (partialFile.mimeVec) {
             fileInstance.mimeVec = partialFile.mimeVec;
         } else if (partialFile.mimeType) {
             fileInstance.mimeVec = parseContentType(partialFile.mimeType);
-        } else {
-
-            xattr.get(filePath, CONTENT_TYPE_XATTR_KEY, (err: any, value: any) => {
-                if (err || !value) {
-                    mimeOf(filePath).then((mimeVec) => {
-                        fileInstance.mimeVec = mimeVec;
-                        xattr.set(filePath, CONTENT_TYPE_XATTR_KEY, restoreContentType(mimeVec));
-                    }).catch((err2) => {
-                        fileInstance._rejectAll(err2, ['mimeVec', 'mimeType']);
-                    });
-
-                    return;
-                }
-                fileInstance.mimeVec = parseContentType(value.toString('utf8'));
-            });
         }
 
         return fileInstance;
@@ -241,9 +207,9 @@ export class FancyFile {
             return this._fromStream(a, b, c);
         } else if (a.fileStream) {
             return this._fromStream(a.fileStream, b, a);
-        } else {
-            throw new Error('Unreconized Input. No Idea What To Do.');
         }
+
+        throw new Error('Unreconized Input. No Idea What To Do.');
     }
 
     fstat?: Stats;
@@ -257,10 +223,13 @@ export class FancyFile {
             const val = Defer<any>();
             this._deferreds.set(key, val);
 
-            return val;
-        } else {
-            return this._deferreds.get(key)!;
+            const subval = Object.create(val);
+            subval.isNew = true;
+
+            return subval;
         }
+
+        return this._deferreds.get(key)!;
     }
     protected _resolveDeferred(key: string, value: any) {
         const deferred = this._ensureDeferred(key);
@@ -283,20 +252,44 @@ export class FancyFile {
     }
 
     get mimeType() {
-        return this._ensureDeferred('mimeType').promise;
+        const deferred = this._ensureDeferred('mimeType');
+        if (deferred.isNew) {
+            (this.filePath as any).then(mimeOf).then((mimeVec: any) => {
+                this.mimeVec = mimeVec;
+            }).catch((err: any) => {
+                this._rejectAll(err, ['mimeVec', 'mimeType']);
+            });
+        }
+
+        return deferred.promise;
     }
 
     get mimeVec() {
-        return this._ensureDeferred('mimeVec').promise;
+        const deferred = this._ensureDeferred('mimeVec');
+        if (deferred.isNew) {
+            (this.filePath as any).then(mimeOf).then((mimeVec: any) => {
+                this.mimeVec = mimeVec;
+            }).catch((err: any) => {
+                this._rejectAll(err, ['mimeVec', 'mimeType']);
+            });
+        }
+
+        return deferred.promise;
     }
 
-    set mimeVec(mimeVec: MIMEVec | null | Promise<MIMEVec | null>) {
+    set mimeVec(_mimeVec: string | MIMEVec | null | Promise<MIMEVec | null>) {
+        let mimeVec = _mimeVec;
+        if (typeof _mimeVec === 'string') {
+            mimeVec = parseContentType(_mimeVec);
+        }
         const r = this._resolveDeferred('mimeVec', mimeVec);
         // tslint:disable-next-line:no-shadowed-variable
         r.then((mimeVec: MIMEVec) => {
             if (mimeVec) {
-                this._resolveDeferred('mimeType',
-                    `${mimeVec.mediaType || 'application'}/${mimeVec.subType || 'octet-stream'}${mimeVec.suffix ? '+' + mimeVec.suffix : ''}`);
+                this._resolveDeferred(
+                    'mimeType',
+                    `${mimeVec.mediaType || 'application'}/${mimeVec.subType || 'octet-stream'}${mimeVec.suffix ? '+' + mimeVec.suffix : ''}`
+                );
             } else {
                 this._resolveDeferred('mimeType', 'application/octet-stream');
             }
@@ -321,7 +314,18 @@ export class FancyFile {
     }
 
     get sha256Sum() {
-        return this._ensureDeferred('sha256Sum').promise;
+        const deferred = this._ensureDeferred('sha256Sum');
+        if (deferred.isNew) {
+            (this.filePath as any)
+                .then(createReadStream)
+                .then((x: Readable) => sha256Hasher.hashStream(x))
+                .then((x: string) => this.sha256Sum = x)
+                .catch((err: any) => {
+                    this._rejectDeferred('sha256Sum', err);
+                });
+        }
+
+        return deferred.promise;
     }
 
     set sha256Sum(sha256SumText: string | Promise<string>) {
@@ -346,8 +350,9 @@ export class FancyFile {
 
     resolve() {
         if (!this._all) {
-            this._all = Promise.all([this.mimeType, this.mimeVec,
-            this.fileName, this.size, this.sha256Sum, this.filePath])
+            this._all = Promise.all([
+                this.mimeType, this.mimeVec,
+                this.fileName, this.size, this.sha256Sum, this.filePath])
                 .then((vec: any) => {
                     const [mimeType, mimeVec, fileName, size, sha256Sum, filePath] = vec;
                     const resolvedFile = new ResolvedFile();

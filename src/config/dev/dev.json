@@ -22,9 +22,16 @@
         ]
     },
     "seed": {
-        "sessionHasher": "x706"
+        "sessionHasher": "x706",
+        "urlSigningHasher": "x706"
     },
     "storage": {
-        "sha256Root": "/data/sha256storage"
+        "sha256Root": "/data/sha256storage",
+        "sha256OSS": {
+            "region": "oss-cn-beijing",
+            "bucket": "naiverlabs-sha256",
+            "accessKeyId": "LTAI4Fh8FdN94xQdVeqMYS4t",
+            "accessKeySecret": "pSLE2PjlYpE07tbE9fM5FZ3BnXFqja"
+        }
     }
 }

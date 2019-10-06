@@ -109,7 +109,7 @@ export async function wxaGetOtherUserProfileController(
 }
 
 
-export async function wxaUserPlazaController(
+export async function wxaUserBazaarController(
     ctx: Context & CrappyKoaRouterThatNeedsReplacement.IRouterContext &
         ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator,
     next: () => Promise<unknown>

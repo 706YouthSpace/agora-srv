@@ -3,16 +3,11 @@ import { ensureDir, pathExists } from 'fs-extra';
 
 import { join as dirJoin } from 'path';
 
-import { FancyFile, CONTENT_TYPE_XATTR_KEY, SHA256_XATTR_KEY } from './fancy-file';
+import { FancyFile } from './fancy-file';
 import { promisify } from 'util';
 
 import * as fs from 'fs';
 import { randomBytes } from 'crypto';
-
-import xattr from 'fs-xattr';
-import { restoreContentType } from './mime';
-
-const setXattr = promisify(xattr.set);
 
 const fstat = promisify(fs.stat);
 const funlink = promisify(fs.unlink);
@@ -103,7 +98,7 @@ export class StorageManager {
             if (! await this.alreadyStored(targetDir, this.defaultFileName)) {
                 targetName = this.defaultFileName;
             } else {
-                targetName = await this.randomName();
+                return null;
             }
         }
 
@@ -122,18 +117,6 @@ export class StorageManager {
                 resolve([targetDir!, targetName!]);
             });
             theStream.pipe(targetStream);
-        });
-        // tslint:disable-next-line:no-floating-promises
-        targetPromise.then(async () => {
-            const sha256Sum = await file.sha256Sum;
-            await setXattr(targetPath, SHA256_XATTR_KEY, sha256Sum);
-        });
-        // tslint:disable-next-line:no-floating-promises
-        targetPromise.then(async () => {
-            const mimeVec = await file.mimeVec;
-            if (mimeVec) {
-                await setXattr(targetPath, CONTENT_TYPE_XATTR_KEY, restoreContentType(mimeVec));
-            }
         });
 
         return targetPromise;
@@ -154,7 +137,7 @@ export class StorageManager {
             if (!await this.alreadyStored(targetDir, this.defaultFileName)) {
                 targetName = this.defaultFileName;
             } else {
-                targetName = await this.randomName();
+                return null;
             }
         }
         const targetPath = await this.securePathFor(targetDir, targetName);

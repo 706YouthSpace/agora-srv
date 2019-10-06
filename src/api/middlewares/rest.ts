@@ -9,6 +9,7 @@ import { logger } from '../../services/logger';
 import { HTTPError } from '../../lib/http-error';
 import { FancyFile } from '../../lib/fancy-file';
 import { encodeBase64UrlSafe } from '../../lib/binary';
+import { restoreContentType, MIMEVec } from '../../lib/mime';
 
 interface RESTMeta {
     // paging?: {
@@ -60,17 +61,15 @@ export async function injectRESTUtilsMiddleware(_ctx: Context, next: () => Promi
 
     ctx.returnFancyFile = async (file: FancyFile, options: { code?: number; fileName?: string } = { code: 200 }) => {
 
-        const resolvedFile = await file.all!;
-
         if (options.code) {
             ctx.status = options.code;
         }
-        ctx.set('Content-Type', resolvedFile.mimeType);
-        ctx.set('Content-Length', resolvedFile.size.toString());
+        ctx.set('Content-Type', restoreContentType((await file.mimeVec) as MIMEVec));
+        ctx.set('Content-Length', (await file.size).toString());
         if (options.fileName) {
             ctx.set('Content-Disposition', `attachment; filename*=utf-8''${encodeURIComponent(options.fileName)}`);
         }
-        ctx.body = resolvedFile.createReadStream();
+        ctx.body = file.createReadStream();
     };
 
     ctx.returnAcception = (obj: any | any[], meta?: RESTMeta) => {

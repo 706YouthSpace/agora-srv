@@ -3,6 +3,7 @@ import { MongoCollection } from '../lib/mongodb/client';
 import _ from 'lodash';
 import { ApplicationError } from '../lib/errors';
 import { vectorize } from '../lib/simple-tools';
+import { wxService } from '../services/wexin';
 
 export interface Post {
     _id: ObjectId;
@@ -11,6 +12,8 @@ export interface Post {
 
     coverUrl?: string;
 
+    wxaIds?: string;
+
     author: ObjectId;
     inReplyToPost: ObjectId;
 
@@ -18,9 +21,11 @@ export interface Post {
 
     tags?: string[];
 
-    images?: string[];
-    video?: string;
-    attachments?: { [k: string]: string };
+    images?: ObjectId[];
+    video?: ObjectId;
+    attachments?: { [k: string]: ObjectId };
+
+    blocked?: boolean;
 
     createdAt: number;
     updatedAt: number;
@@ -61,6 +66,8 @@ export class PostMongoOperations extends MongoCollection<Post> {
             });
         }
 
+        delete draft.wxaIds;
+
         return draft;
     }
 
@@ -68,7 +75,7 @@ export class PostMongoOperations extends MongoCollection<Post> {
         const sanitized = this.sanitizePost(draft);
         const ts = Date.now();
 
-        return this.insertOne({ ...sanitized, createdAt: ts, updatedAt: ts } as any);
+        return this.insertOne({ ...sanitized, wxaIds: [wxService.config.appId], createdAt: ts, updatedAt: ts } as any);
     }
 
     setToPost(id: ObjectId, draft: Partial<Post>) {

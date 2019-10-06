@@ -30,6 +30,7 @@ const validatorRules: any = [
     ],
 
     ['password', /^[a-zA-Z0-9\-_\.\=]{6,21}$/, '[a-Z][a-Z0-9-_.=]{6,21}'],
+    ['timestamp', /^[0-9]{13}$/, 'Timestamp should be 13 digit number'],
     ['ObjectId', (val: any) => ObjectId.isValid(val), 'Valid bson ObjectId'],
     [
         'ObjectId[]',
