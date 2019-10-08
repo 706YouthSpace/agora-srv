@@ -22,7 +22,7 @@ import { multiParse } from './middlewares/body-parser';
 import { uploadFileToPersonalDrive } from './file';
 import { createNewPostController, commentOnPostController, getPostsController, getPostController, getCommentsController } from './post';
 
-const app = new koa<any, any>();
+export const app = new koa<any, any>();
 
 
 app.use(koaLogger());

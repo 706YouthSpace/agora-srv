@@ -1,3 +1,4 @@
 import { TemporaryFileManger } from '../lib/tmp-file';
+import config from '../config';
 
-export const tmpFileManager = new TemporaryFileManger('/tmp/x706');
+export const tmpFileManager = new TemporaryFileManger(config.tmpDir);

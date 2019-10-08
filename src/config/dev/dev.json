@@ -1,4 +1,8 @@
 {
+    "server": {
+        "listenPort": 3001
+    },
+    "tmpDir": "/tmp/x706",
     "mongoUrl": "mongodb://db1.local.naiver.org:27017",
     "mongoDatabase": "x706",
     "redis": {

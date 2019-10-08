@@ -38,14 +38,14 @@ export class MongodbClient extends DatabaseClient<MongoClient> {
         super();
         this.options = options;
         this.mongoUrl = url;
-        this.mongoClient = new MongoClient(this.mongoUrl, this.options);
+        this.mongoClient = new MongoClient(this.mongoUrl, { ...this.options, useUnifiedTopology: true });
         this.avaliable = true;
 
         this.mongoClientPromise = this.init();
     }
 
     init() {
-        this.mongoClientPromise = this.mongoClient.connect().then((client) => {
+        this.mongoClientPromise = (this.mongoClient.connect as any)({ useNewUrlParser: true }).then((client: MongoClient) => {
             const reInitFunc = (_err: any) => {
                 if (!client.isConnected()) {
                     client.close().catch();

@@ -14,7 +14,7 @@ import { Post } from '../db/post';
 import { FileRecord } from '../db/file';
 import { urlSignatureManager } from '../services/url-signature';
 
-const fileServerBaseUri = 'https://x706-file.local.naiver.org:8083/file/';
+const fileServerBaseUri = 'https://x706.local.naiver.org:8083/file/';
 
 function signDownloadUrl(fileId: ObjectId) {
     const ts = Date.now() + 1800 * 1000;
