@@ -35,7 +35,7 @@ export async function uploadFileToPersonalDrive(
 
     const files = ctx.files;
 
-    const targetId = _.get(ctx, 'request.body.target') || _.get(ctx, 'request.body.host') || _.get(ctx, 'request.params.targetId');
+    const targetId = _.get(ctx, 'request.body.target') || _.get(ctx, 'request.body.host') || _.get(ctx, 'params.targetId');
 
     let targetDir: DirRecord | undefined | null;
     if (targetDir) {
@@ -71,19 +71,18 @@ export async function getFileController(
         ContextFileUtils & ContextFileUtils & CrappyKoaRouterThatNeedsReplacement,
     next: () => Promise<unknown>
 ) {
-    const currentUser = await ctx.wxaFacl.assertLoggedIn();
+    // const currentUser = await ctx.wxaFacl.assertLoggedIn();
 
-    const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+    // const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
 
-    if (!user) {
-        throw new ApplicationError(40401);
-    }
+    // if (!user) {
+    //     throw new ApplicationError(40401);
+    // }
 
-    const fileId = _.get(ctx, 'request.params.fileId');
+    const fileId = _.get(ctx, 'params.fileId');
     const timestamp = _.get(ctx, 'query.ts');
     const signature = _.get(ctx, 'query.sig');
     const download = _.get(ctx, 'query.download');
-
     await ctx.validator.assertValid('fileId', fileId, 'ObjectId');
     await ctx.validator.assertValid('ts', timestamp, 'timestamp');
 
@@ -130,16 +129,16 @@ export async function getFileWithImageThumbnailController(
         ContextFileUtils & ContextFileUtils & CrappyKoaRouterThatNeedsReplacement,
     next: () => Promise<unknown>
 ) {
-    const currentUser = await ctx.wxaFacl.assertLoggedIn();
+    // const currentUser = await ctx.wxaFacl.assertLoggedIn();
 
-    const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+    // const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
 
-    if (!user) {
+    // if (!user) {
 
-        throw new ApplicationError(40401);
-    }
+    //     throw new ApplicationError(40401);
+    // }
 
-    const fileId = _.get(ctx, 'request.params.fileId');
+    const fileId = _.get(ctx, 'params.fileId');
     const timestamp = _.get(ctx, 'query.ts');
     const signature = _.get(ctx, 'query.sig');
     const thumbProfile = _.get(ctx, 'query.thumb');

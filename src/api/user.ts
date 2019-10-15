@@ -94,6 +94,21 @@ export async function wxaGetOtherUserProfileController(
         }
     }
 
+    const friendship2 = await adjacencyMongoOperations.findOne(
+        {
+            type: 'friend',
+            fromType: 'user',
+            toType: 'user',
+            from: thisUser._id,
+            to: new ObjectId(queryId)
+        }
+    );
+
+    const friendshipBref = {
+        isFriendOfMine: Boolean(friendship2),
+        blacklisted: Boolean(_.get(friendship2, 'properties.blacklisted')),
+    };
+
     const thatUser = await thatUserPromise;
 
     if (!thatUser) {
@@ -102,7 +117,7 @@ export async function wxaGetOtherUserProfileController(
     }
 
     const thatUserBref = userMongoOperations.makeBrefUser(thatUser, accessLevel);
-
+    (thatUserBref as any).friendship = friendshipBref;
     ctx.returnData(thatUserBref);
 
     return next();
@@ -115,7 +130,7 @@ export async function wxaUserBazaarController(
     next: () => Promise<unknown>
 ) {
 
-    const currentUser = await ctx.wxaFacl.isLoggedIn();
+    // const currentUser = await ctx.wxaFacl.isLoggedIn();
 
     const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const anchor = ctx.query.anchor;
@@ -123,16 +138,14 @@ export async function wxaUserBazaarController(
     const query: any = { activated: true, profile: { $exists: true } };
 
     if (ObjectId.isValid(anchor)) {
-        _.set(query, '_id.$gt', new ObjectId(anchor));
+        _.set(query, '_id.$lt', new ObjectId(anchor));
     }
 
-    if (currentUser) {
-        _.set(query, '_id.$ne', new ObjectId(currentUser.cuid));
-    }
+    // if (currentUser) {
+    //     _.set(query, '_id.$ne', new ObjectId(currentUser.cuid));
+    // }
 
-    const cursor = await userMongoOperations.find(query);
-    const users = await cursor.sort({ _id: -1 }).limit(limit).toArray();
-
+    const users = await userMongoOperations.simpleFind(query, { sort: { _id: -1 }, limit });
     const userBrefs = users.map((x) => userMongoOperations.makeBrefUser(x));
 
     ctx.returnData(userBrefs);
@@ -379,6 +392,53 @@ export async function wxaGetFriendsController(
     const brefFriends = friendIds.map((x) => userMongoOperations.makeBrefUser(friendMap[x.toHexString()], level));
 
     ctx.returnData(brefFriends);
+
+    return next();
+}
+
+export async function wxaDecryptController(
+    ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator,
+    next: () => Promise<unknown>
+) {
+
+    const currentUser = await ctx.wxaFacl.assertLoggedIn();
+
+    const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+
+    if (!user) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40401);
+    }
+
+    const queryId = ctx.query.uid || _.get(ctx, 'request.body.uid') || _.get(ctx, 'params.uid');
+
+    await ctx.validator.assertValid('uid', queryId, 'ObjectId');
+
+    const thatUser = await userMongoOperations.getSingleUserById(queryId);
+
+    if (!thatUser) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40402);
+    }
+
+    const action = (ctx.method === 'delete' || ctx.query.action === 'unfriend') ? 'unfriend' : 'friend';
+    const blacklisted = _.get(ctx, 'request.body.blacklisted');
+    if (action === 'friend') {
+        await adjacencyMongoOperations.upsertRecord(
+            user._id, 'user',
+            new ObjectId(thatUser._id), 'user',
+            'friend',
+            blacklisted !== undefined ? { blacklisted: Boolean(blacklisted) } : undefined
+        );
+    } else if (action === 'unfriend') {
+        await adjacencyMongoOperations.removeRecords(
+            user._id, 'user',
+            new ObjectId(thatUser._id), 'user',
+            'friend'
+        );
+    }
+
+    ctx.returnData(true);
 
     return next();
 }

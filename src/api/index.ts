@@ -19,8 +19,10 @@ import { injectRESTUtilsMiddleware } from './middlewares/rest';
 import { injectLoggerMiddleware } from './middlewares/logger';
 import { injectValidatorMiddleware } from './middlewares/validator';
 import { multiParse } from './middlewares/body-parser';
-import { uploadFileToPersonalDrive } from './file';
+import { uploadFileToPersonalDrive, getFileController, getFileWithImageThumbnailController } from './file';
 import { createNewPostController, commentOnPostController, getPostsController, getPostController, getCommentsController } from './post';
+import { autoSessionMiddleware } from './middlewares/session';
+import { injectSessionWxaFacilityMiddleware } from './middlewares/session-wxa';
 
 export const app = new koa<any, any>();
 
@@ -30,6 +32,8 @@ app.use(CORSAllowAllMiddleware);
 app.use(injectRESTUtilsMiddleware);
 app.use(injectLoggerMiddleware);
 app.use(injectValidatorMiddleware);
+app.use(autoSessionMiddleware);
+app.use(injectSessionWxaFacilityMiddleware);
 
 app.use(bodyParser({
     enableTypes: ['json', 'form', 'text'],
@@ -49,6 +53,7 @@ router.get('/ping', (ctx, next) => {
     return next();
 });
 
+router.get('/wx-platform/landing', wxPlatformLandingController);
 router.post('/wx-platform/landing', wxPlatformLandingController);
 
 router.post('/login', wxaLoginController);
@@ -86,6 +91,9 @@ router.get('/post/:postId', getPostController);
 router.get('/post/:postId', getPostController);
 router.get('/post/:postId/comments', getCommentsController);
 
+
+router.get('/file/:fileId', getFileController);
+router.get('/image/:fileId', getFileWithImageThumbnailController);
 
 app.use(router.middleware());
 app.use(router.allowedMethods());

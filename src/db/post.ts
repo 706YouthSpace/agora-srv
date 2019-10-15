@@ -39,7 +39,7 @@ const objIdFields = new Set(['_id', 'author', 'inReplyToPost']);
 export class PostMongoOperations extends MongoCollection<Post> {
 
     sanitizePost(draft: Partial<Post>) {
-        if (!(draft.title && draft.author)) {
+        if (!((draft.content || (draft.images && draft.images.length) || draft.video || draft.attachments) && draft.author)) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40003);
         }
@@ -51,9 +51,11 @@ export class PostMongoOperations extends MongoCollection<Post> {
             }
         }
 
-        draft.title = draft.title.substring(0, TITLE_MAX_LENGTH);
         if (draft.content) {
             draft.content = draft.content.substring(0, CONTENT_MAX_LENGTH);
+        }
+        if (draft.title) {
+            draft.title = draft.title.substring(0, TITLE_MAX_LENGTH);
         }
 
         if (Array.isArray(draft.tags)) {

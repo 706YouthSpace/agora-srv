@@ -1322,6 +1322,25 @@ export class WxPlatformService extends EventEmitter {
         const realAppSecret = appSecret || this.config.appSecret;
 
         const result = await this._getRequest(
+            'https://api.weixin.qq.com/sns/jscode2session',
+            {
+                appid: realAppId,
+                secret: realAppSecret,
+                js_code: code,
+                grant_type: 'authorization_code'
+            }
+        );
+
+        return result as WxaLoginReceipt;
+    }
+
+    @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
+    async wxaComponentLogin(code: string, appId?: string, appSecret?: string) {
+        
+        const realAppId = appId || this.config.appId;
+        const realAppSecret = appSecret || this.config.appSecret;
+
+        const result = await this._getRequest(
             'https://api.weixin.qq.com/sns/component/jscode2session',
             {
                 appid: realAppId,

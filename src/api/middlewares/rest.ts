@@ -69,7 +69,7 @@ export async function injectRESTUtilsMiddleware(_ctx: Context, next: () => Promi
         if (options.fileName) {
             ctx.set('Content-Disposition', `attachment; filename*=utf-8''${encodeURIComponent(options.fileName)}`);
         }
-        ctx.body = file.createReadStream();
+        ctx.body = await file.createReadStream();
     };
 
     ctx.returnAcception = (obj: any | any[], meta?: RESTMeta) => {

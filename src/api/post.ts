@@ -14,7 +14,12 @@ import { Post } from '../db/post';
 import { FileRecord } from '../db/file';
 import { urlSignatureManager } from '../services/url-signature';
 
-const fileServerBaseUri = 'https://x706.local.naiver.org:8083/file/';
+const fileServerBaseUri = 'https://x706.access.naiver.org/file/';
+
+const DEFAULT_PAGE_SIZE = 15;
+const MAX_PAGE_SIZE = 50;
+const MAX_TAG_LENGTH = 10;
+
 
 function signDownloadUrl(fileId: ObjectId) {
     const ts = Date.now() + 1800 * 1000;
@@ -41,6 +46,9 @@ export async function createNewPostController(
     const content = _.get(ctx, 'request.body.content') || title || '';
 
     const images = _.get(ctx, 'request.body.images');
+
+    const tags = _.get(ctx, 'request.body.tags');
+
     const video = _.get(ctx, 'request.body.video');
 
     const draft: Partial<Post> = {
@@ -53,9 +61,10 @@ export async function createNewPostController(
 
     if (images) {
         await ctx.validator.assertValid('images', images, 'ObjectId[]');
-        files.push(...await fileMongoOperations.simpleFind({ $in: { _id: images.map((x: string) => new ObjectId(x)) }, owner: user._id, ownerType: 'user' }));
+        files.push(...await fileMongoOperations.simpleFind({ _id: { $in: images.map((x: string) => new ObjectId(x)) }, owner: user._id, ownerType: 'user' }));
         if (files.length) {
-            draft.images = files.map((x) => x._id);
+            const idSet = new Set(files.map((x) => x._id.toHexString()));
+            draft.images = images.filter((x: string) => idSet.has(x)).map((x: string) => new ObjectId(x));
         }
     }
 
@@ -68,13 +77,17 @@ export async function createNewPostController(
         }
     }
 
+    if (Array.isArray(tags) && tags.length) {
+        draft.tags = _.compact(_.uniq(tags)).map((x) => x.substring(0, MAX_TAG_LENGTH));
+    }
+
     const post = await postMongoOperations.newPost(draft);
 
     ctx.returnData(post);
 
     if (files.length) {
         await fileMongoOperations.updateMany(
-            { $in: { _id: files.map((x) => x._id) } },
+            { _id: { $in: files.map((x) => x._id) } },
             {
                 $set: {
                     owner: post._id,
@@ -153,7 +166,7 @@ export async function commentOnPostController(
 
     if (files.length) {
         await fileMongoOperations.updateMany(
-            { $in: { _id: files.map((x) => x._id) } },
+            { _id: { $in: files.map((x) => x._id) } },
             {
                 $set: {
                     owner: post._id,
@@ -182,25 +195,32 @@ export async function getPostsController(
     //         throw new ApplicationError(40401);
     //     }
     // }
-
+    const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const anchor = _.get(ctx, 'query.anchor') || _.get(ctx, 'request.body.anchor');
 
     const query: any = { blocked: { $ne: true }, inReplyToPost: { $exists: false } };
     if (anchor && ctx.validator.assertValid('anchor', `${anchor}`, 'timestamp')) {
-        query.updatedAt = { $gte: parseInt(anchor) };
+        query.updatedAt = { $lt: parseInt(anchor) };
     }
 
 
-    const posts = await postMongoOperations.simpleFind(query, { sort: { updatedAt: -1 } });
+    const posts = await postMongoOperations.simpleFind(query, { limit, sort: { updatedAt: -1 } });
+
+    const authors = (await userMongoOperations.getUsersById(posts.map((x) => x.author))).map((x) => userMongoOperations.makeBrefUser(x));
+
+    const authorsMap = _.keyBy(authors, (x) => x._id.toHexString());
 
     const patchedPosts = posts.map((post) => {
         const patchedPost: any = _.clone(post);
+        patchedPost.author = authorsMap[post.author.toHexString()];
         if (post.images) {
             patchedPost.images = post.images.map(signDownloadUrl);
         }
         if (post.video) {
             patchedPost.video = signDownloadUrl(post.video);
         }
+
+        return patchedPost;
     });
 
 

@@ -19,7 +19,7 @@ export async function wxPlatformLandingController(ctx: Context, next: () => Prom
         return next();
     }
 
-    ctx.body = 'success';
+    ctx.body = ctx.query.echostr || 'success';
 
     let parsed: { [k: string]: any } | undefined;
 

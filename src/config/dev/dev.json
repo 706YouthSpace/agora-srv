@@ -3,10 +3,10 @@
         "listenPort": 3001
     },
     "tmpDir": "/tmp/x706",
-    "mongoUrl": "mongodb://db1.local.naiver.org:27017",
+    "mongoUrl": "mongodb://192.168.110.41:27017",
     "mongoDatabase": "x706",
     "redis": {
-        "host": "db2.local.naiver.org",
+        "host": "192.168.110.42",
         "port": 6379
     },
     "wechat": {

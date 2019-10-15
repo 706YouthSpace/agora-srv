@@ -100,6 +100,10 @@ export class UserMongoOperations extends MongoCollection<User> {
                 result[k] = v.substring(0, MAX_BREF_LENGTH);
                 continue;
             }
+            if (k === 'avatarUrl') {
+                result[k] = v;
+                continue;
+            }
 
             result[k] = v.substring(0, MAX_GENERAL_STRING_LENGTH);
         }
@@ -167,7 +171,7 @@ export class UserMongoOperations extends MongoCollection<User> {
         return this.findOneAndUpdate(
             { wxOpenId },
             { $set: { wxaId, wxUnionId, lastActiveAt: ts }, $setOnInsert: { createdAt: ts } },
-            { upsert: true, }
+            { upsert: true, returnOriginal: false }
         );
     }
 
@@ -203,27 +207,25 @@ export class UserMongoOperations extends MongoCollection<User> {
 
     makeBrefUser(user: User, level: 'public' | 'contact' | 'private' = 'public') {
         const brefUser = _.clone(user);
+        const profilePrivacy: { [k: string]: typeof level } = _.defaults(_.get(user, 'preferences.profilePrivacy'), { cellphone: 'private' });
+        const currentProfile: any = user.profile || {};
 
-        if (user.preferences && _.isObject(user.preferences.profilePrivacy)) {
-            const currentProfile: any = user.profile || {};
+        const resultProfile: any = {};
 
-            const resultProfile: any = {};
-
-            for (const [key, privacyLevel] of Object.entries(user.preferences.profilePrivacy)) {
-                if (privacyLevel === 'private' && level !== 'private') {
-                    continue;
-                }
-
-                if (privacyLevel === 'contact' && level === 'public') {
-                    continue;
-                }
-
-                resultProfile[key] = currentProfile[key];
+        for (const [key, val] of Object.entries(currentProfile)) {
+            const privacyLevel = profilePrivacy[key];
+            if (privacyLevel === 'private' && level !== 'private') {
+                continue;
             }
 
-            brefUser.profile = resultProfile;
+            if (privacyLevel === 'contact' && level === 'public') {
+                continue;
+            }
 
+            resultProfile[key] = val;
         }
+
+        brefUser.profile = resultProfile;
 
         if (level !== 'private') {
             delete brefUser.preferences;
@@ -233,7 +235,7 @@ export class UserMongoOperations extends MongoCollection<User> {
     }
 
     getUsersById(ids: Array<(string | ObjectId)>, additionalQuery: any = {}) {
-        return this.simpleFind({ ...additionalQuery, $in: { _id: ids.map((x) => new ObjectId(x)) }, wxaId: wxService.config.appId });
+        return this.simpleFind({ ...additionalQuery, _id: { $in: ids.map((x) => new ObjectId(x)) }, wxaId: wxService.config.appId });
     }
 
     async getSingleUserById(id: string) {
