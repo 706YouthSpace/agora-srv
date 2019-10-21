@@ -26,6 +26,10 @@ export interface Post {
     attachments?: { [k: string]: ObjectId };
 
     blocked?: boolean;
+    
+    counter?: {
+        [k: string]: number;
+    }
 
     createdAt: number;
     updatedAt: number;
@@ -84,6 +88,10 @@ export class PostMongoOperations extends MongoCollection<Post> {
         const sanitized = this.sanitizePost(draft);
 
         return this.findOneAndUpdate({ _id: id }, { $set: { ...vectorize(sanitized), updatedAt: Date.now() } });
+    }
+
+    incCounter(_id: ObjectId, name: string, amount = 1) {
+        return this.updateOne({ _id }, { $inc: { [`counter.${name}`]: amount } });
     }
 
 }

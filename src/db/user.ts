@@ -21,6 +21,9 @@ export interface User {
         country?: string;
         city?: string;
 
+        wxId?: string;
+        cellphone?: string;
+
         tags?: string[];
 
         school?: string;
@@ -42,6 +45,10 @@ export interface User {
         };
 
         friending?: 'needs-confirmation' | 'allow-anyone' | 'disallow-everyone';
+    },
+
+    counters?: {
+        [k: string]: number;
     }
 
     activated?: boolean;
@@ -49,7 +56,7 @@ export interface User {
 }
 
 const profileKeys = new Set([
-    'nickName', 'realName', 'gender', 'avatarUrl', 'province', 'country', 'city',
+    'wxId', 'cellphone', 'nickName', 'realName', 'gender', 'avatarUrl', 'province', 'country', 'city',
     'tags', 'school', 'researchField', 'organization', 'position', 'brefExperience',
     'brefSkills', 'brefConcerns', 'brefOthers'
 ]);
@@ -246,5 +253,8 @@ export class UserMongoOperations extends MongoCollection<User> {
         return this.updateOne({ _id }, { $set: { activated: Boolean(activated) } });
     }
 
+    incCounter(_id: ObjectId, name: string, amount = 1) {
+        return this.updateOne({ _id }, { $inc: { [`counter.${name}`]: amount } });
+    }
 
 }

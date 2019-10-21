@@ -286,7 +286,7 @@ export interface MongoCollection<TSchema = any> {
     drop(options?: { session: ClientSession }): Promise<any>;
     dropIndex(indexName: string, options?: CommonOptions & { maxTimeMS?: number }): Promise<any>;
     dropIndexes(options?: { session?: ClientSession; maxTimeMS?: number }): Promise<any>;
-    estimatedDocumentCount(query?: FilterQuery<TSchema>, options?: MongoCountPreferences): Promise<number>;
+    estimatedDocumentCount(options?: MongoCountPreferences): Promise<number>;
     find<T = TSchema>(query: FilterQuery<TSchema>, options?: FindOneOptions): Promise<Cursor<T>>;
     findOne<T = TSchema>(filter: FilterQuery<TSchema>, options?: FindOneOptions): Promise<T | null>;
     // findOneAndDelete(filter: FilterQuery<TSchema>, options?: FindOneAndDeleteOption): Promise<FindAndModifyWriteOpResultObject<TSchema>>;

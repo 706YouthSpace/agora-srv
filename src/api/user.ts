@@ -135,7 +135,7 @@ export async function wxaUserBazaarController(
     const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const anchor = ctx.query.anchor;
 
-    const query: any = { activated: true, profile: { $exists: true } };
+    const query: any = { profile: { $exists: true } };
 
     if (ObjectId.isValid(anchor)) {
         _.set(query, '_id.$lt', new ObjectId(anchor));

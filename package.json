@@ -28,6 +28,7 @@
     "moment": "^2.24.0",
     "mongodb": "^3.3.2",
     "node-object-hash": "^1.4.2",
+    "nodejieba": "^2.3.2",
     "redlock": "^4.0.0",
     "request": "^2.88.0",
     "rxjs": "^6.5.2",
