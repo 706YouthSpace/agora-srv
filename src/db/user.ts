@@ -1,9 +1,11 @@
 import { ObjectId } from "mongodb";
-import { MongoCollection } from '../lib/mongodb/client';
 import _ from 'lodash';
 import { ApplicationError } from '../lib/errors';
 import { vectorize } from '../lib/simple-tools';
 import { wxService } from '../services/wexin';
+import { JiebaBm25EnabledCollection, TFIDFFacl } from '../lib/mongodb/bm25';
+import { jiebaService } from '../services/nlp';
+import { logger } from '../services/logger';
 
 export interface User {
     _id: ObjectId;
@@ -64,7 +66,44 @@ const profileKeys = new Set([
 const MAX_BREF_LENGTH = 512;
 const MAX_GENERAL_STRING_LENGTH = 64;
 
-export class UserMongoOperations extends MongoCollection<User> {
+export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
+
+    termAnalyze(record: Partial<User>) {
+        const fieldsToInsert = ['nickName', 'realName', 'city', 'province', 'country', 'school', 'tags', 'organization', 'position'];
+        const fieldsToAnalyze = ['school', 'organization', 'position', 'brefExperience', 'brefSkills', 'brefConcerns', 'brefOthers'];
+        const result: { [k: string]: number } = {};
+
+        for (const f of fieldsToInsert) {
+            const val = _.get(record, `profile.${f}`);
+
+            if (Array.isArray(val)) {
+                for (const x of val) {
+                    result[x] = (result[x] || 0) + 1;
+                }
+            } else if (val) {
+                result[val] = (result[val] || 0) + 1;
+            }
+        }
+
+        for (const f of fieldsToAnalyze) {
+            const val = _.get(record, `profile.${f}`);
+            if (!(val && (typeof val === 'string'))) {
+                continue;
+            }
+            const alreadyInserted = fieldsToInsert.indexOf(f) >= 0;
+            const partialResult = jiebaService.analyzeForIndex(val);
+
+            for (const [k, v] of Object.entries(partialResult)) {
+                if (result[k] && alreadyInserted) {
+                    continue;
+                }
+                result[k] = (result[k] || 0) + v;
+            }
+        }
+
+        return Promise.resolve(result);
+    }
+
     sanitizeUserProfile(draft: { [k: string]: any }) {
 
         if (typeof draft !== 'object') {
@@ -194,7 +233,13 @@ export class UserMongoOperations extends MongoCollection<User> {
             return this.findOne({ wxaId, wxOpenId });
         }
 
-        return this.findOneAndUpdate({ wxaId, wxOpenId }, { $set: query }, { returnOriginal: false });
+        const result = await this.findOneAndUpdate({ wxaId, wxOpenId }, { $set: query }, { returnOriginal: false });
+
+        if (result) {
+            this.tfReIndex(result._id).catch(logger.error);
+        }
+
+        return result;
     }
 
 
@@ -212,7 +257,7 @@ export class UserMongoOperations extends MongoCollection<User> {
         return this.findOneAndUpdate({ wxaId, wxOpenId }, { $set: query }, { returnOriginal: false });
     }
 
-    makeBrefUser(user: User, level: 'public' | 'contact' | 'private' = 'public') {
+    makeBrefUser(user: User & Partial<TFIDFFacl>, level: 'public' | 'contact' | 'private' = 'public') {
         const brefUser = _.clone(user);
         const profilePrivacy: { [k: string]: typeof level } = _.defaults(_.get(user, 'preferences.profilePrivacy'), { cellphone: 'private' });
         const currentProfile: any = user.profile || {};
@@ -237,6 +282,8 @@ export class UserMongoOperations extends MongoCollection<User> {
         if (level !== 'private') {
             delete brefUser.preferences;
         }
+
+        delete brefUser._terms;
 
         return brefUser;
     }

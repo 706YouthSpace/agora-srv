@@ -1,8 +1,9 @@
 import { MongoCollection } from './client';
 import _ from 'lodash';
 import { ObjectId, FilterQuery } from 'mongodb';
+import { jiebaService } from '../../services/nlp';
 
-interface TFIDFFacl {
+export interface TFIDFFacl {
     _id: ObjectId;
     _terms: Array<{
         t: string;
@@ -284,4 +285,18 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
         return cursor.toArray();
     }
 
+}
+
+export abstract class JiebaBm25EnabledCollection<T> extends BM25EnabledCollection<T> {
+    async queryAnalyze(queryString: string) {
+        const result = jiebaService.analyze(queryString);
+
+        return Promise.resolve(Object.keys(result));
+    }
+
+    async indexAnalyze(content: string) {
+        const result = jiebaService.analyzeForIndex(content);
+
+        return Promise.resolve(result);
+    }
 }

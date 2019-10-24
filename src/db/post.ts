@@ -1,9 +1,11 @@
 import { ObjectId } from "mongodb";
-import { MongoCollection } from '../lib/mongodb/client';
 import _ from 'lodash';
 import { ApplicationError } from '../lib/errors';
 import { vectorize } from '../lib/simple-tools';
 import { wxService } from '../services/wexin';
+import { JiebaBm25EnabledCollection } from '../lib/mongodb/bm25';
+import { jiebaService } from '../services/nlp';
+import { logger } from '../services/logger';
 
 export interface Post {
     _id: ObjectId;
@@ -15,7 +17,8 @@ export interface Post {
     wxaIds?: string;
 
     author: ObjectId;
-    inReplyToPost: ObjectId;
+    inReplyToPost?: ObjectId;
+    postReferences?: ObjectId[];
 
     content: string;
 
@@ -26,7 +29,7 @@ export interface Post {
     attachments?: { [k: string]: ObjectId };
 
     blocked?: boolean;
-    
+
     counter?: {
         [k: string]: number;
     }
@@ -40,7 +43,43 @@ const TAG_MAX_LENGTH = 128;
 const CONTENT_MAX_LENGTH = 102400;
 
 const objIdFields = new Set(['_id', 'author', 'inReplyToPost']);
-export class PostMongoOperations extends MongoCollection<Post> {
+export class PostMongoOperations extends JiebaBm25EnabledCollection<Post> {
+
+    termAnalyze(record: Partial<Post>) {
+        const fieldsToInsert = ['tags'];
+        const fieldsToAnalyze = ['content', 'title'];
+        const result: { [k: string]: number } = {};
+
+        for (const f of fieldsToInsert) {
+            const val = _.get(record, f);
+
+            if (Array.isArray(val)) {
+                for (const x of val) {
+                    result[x] = (result[x] || 0) + 1;
+                }
+            } else if (val) {
+                result[val] = (result[val] || 0) + 1;
+            }
+        }
+
+        for (const f of fieldsToAnalyze) {
+            const val = _.get(record, f);
+            if (!(val && (typeof val === 'string'))) {
+                continue;
+            }
+            const alreadyInserted = fieldsToInsert.indexOf(f) >= 0;
+            const partialResult = jiebaService.analyzeForIndex(val);
+
+            for (const [k, v] of Object.entries(partialResult)) {
+                if (result[k] && alreadyInserted) {
+                    continue;
+                }
+                result[k] = (result[k] || 0) + v;
+            }
+        }
+
+        return Promise.resolve(result);
+    }
 
     sanitizePost(draft: Partial<Post>) {
         if (!((draft.content || (draft.images && draft.images.length) || draft.video || draft.attachments) && draft.author)) {
@@ -77,17 +116,23 @@ export class PostMongoOperations extends MongoCollection<Post> {
         return draft;
     }
 
-    newPost(draft: Partial<Post>) {
+    async newPost(draft: Partial<Post>) {
         const sanitized = this.sanitizePost(draft);
         const ts = Date.now();
+        await this.tfFill(sanitized);
 
         return this.insertOne({ ...sanitized, wxaIds: [wxService.config.appId], createdAt: ts, updatedAt: ts } as any);
     }
 
-    setToPost(id: ObjectId, draft: Partial<Post>) {
+    async setToPost(id: ObjectId, draft: Partial<Post>) {
         const sanitized = this.sanitizePost(draft);
+        const result = await this.findOneAndUpdate({ _id: id }, { $set: { ...vectorize(sanitized), updatedAt: Date.now() } });
 
-        return this.findOneAndUpdate({ _id: id }, { $set: { ...vectorize(sanitized), updatedAt: Date.now() } });
+        if (result) {
+            this.tfReIndex(result._id).catch(logger.error);
+        }
+
+        return result;
     }
 
     incCounter(_id: ObjectId, name: string, amount = 1) {

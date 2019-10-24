@@ -2,7 +2,7 @@
 
 import { Context } from "koa";
 import { SessionWxaFacility } from './middlewares/session-wxa';
-import { userMongoOperations, postMongoOperations, fileMongoOperations } from '../db/index';
+import { userMongoOperations, postMongoOperations, fileMongoOperations, adjacencyMongoOperations } from '../db/index';
 import { ParsedContext, ContextFileUtils } from './middlewares/body-parser';
 import { ContextRESTUtils } from './middlewares/rest';
 import { ApplicationError } from '../lib/errors';
@@ -119,15 +119,25 @@ export async function commentOnPostController(
 
     await ctx.validator.assertValid('postId', commentOnId, 'ObjectId');
 
+    const referenceId = _.get(ctx, 'request.body.ref') || _.get(ctx, 'request.query.ref') || _.get(ctx, 'params.ref');
+
+    if (referenceId) {
+        await ctx.validator.assertValid('refId', referenceId, 'ObjectId');
+    }
+
     const postId = new ObjectId(commentOnId);
 
-    const targePost = await postMongoOperations.findOne({ _id: postId });
+    const targePost = await postMongoOperations.findOne({ _id: postId }, { projection: { _terms: false } });
 
     if (!targePost) {
         // tslint:disable-next-line: no-magic-numbers
         throw new ApplicationError(40402);
     }
 
+    const references = [targePost._id];
+    if (referenceId) {
+        references.push(new ObjectId(referenceId));
+    }
     const title = _.get(ctx, 'request.body.title');
     const content = _.get(ctx, 'request.body.content') || title || '';
 
@@ -138,7 +148,8 @@ export async function commentOnPostController(
         title,
         content,
         author: user._id,
-        inReplyToPost: targePost._id
+        inReplyToPost: targePost._id,
+        postReferences: references
     };
 
     const files: FileRecord[] = [];
@@ -161,6 +172,8 @@ export async function commentOnPostController(
     }
 
     const post = await postMongoOperations.newPost(draft);
+
+    postMongoOperations.updateOne({ _id: targePost._id }, { $inc: { 'counter.comments': 1 } }).catch();
 
     ctx.returnData(post);
 
@@ -293,21 +306,109 @@ export async function getCommentsController(
 
     await ctx.validator.assertValid('postId', postId, 'ObjectId');
 
-    const posts = await postMongoOperations.simpleFind({ inReplyToPost: new ObjectId(postId), blocked: { $ne: true } }, { sort: { createdAt: -1 } });
+    const mode = _.get(ctx, 'query.mode') || 'all';
+    const query: any = { inReplyToPost: new ObjectId(postId), blocked: { $ne: true } };
+
+    switch (mode) {
+        case 'ref': {
+            const refId = _.get(ctx, 'query.ref');
+            await ctx.validator.assertValid('ref', refId, 'ObjectId');
+
+            query.postReferences = refId;
+
+            break;
+        }
+
+        case 'lv1': {
+
+            query.postReferences = { $size: 1 };
+
+            break;
+        }
+
+        case 'all':
+        default: {
+            void 0;
+        }
+    }
+
+    const posts = await postMongoOperations.simpleFind(query, { sort: { createdAt: -1 } });
+
+    const authorIds = new Set<string>();
 
     const patchedPosts = posts.map((post) => {
         const patchedPost: any = _.clone(post);
+        authorIds.add(post.author.toHexString());
         if (post.images) {
             patchedPost.images = post.images.map(signDownloadUrl);
         }
         if (post.video) {
             patchedPost.video = signDownloadUrl(post.video);
         }
+
+        return patchedPost;
     });
 
+    const authors = (await userMongoOperations.getUsersById(Array.from(authorIds))).map((x) => userMongoOperations.makeBrefUser(x));
 
-    ctx.returnData(patchedPosts);
+    ctx.returnData(patchedPosts, { authors });
 
+    return next();
+}
+
+export async function likePostController(
+    ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator & CrappyKoaRouterThatNeedsReplacement,
+    next: () => Promise<unknown>
+) {
+    const action = _.get(ctx, 'request.body.action') || _.get(ctx, 'request.query.action') || ((ctx.method === 'delete') ? 'unlike' : 'like');
+
+    const currentUser = await ctx.wxaFacl.assertLoggedIn();
+
+    const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+
+    if (!user) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40401);
+    }
+
+    const targetId = _.get(ctx, 'request.body.postId') || _.get(ctx, 'request.query.postId') || _.get(ctx, 'params.postId');
+
+    await ctx.validator.assertValid('postId', targetId, 'ObjectId');
+
+    const postId = new ObjectId(targetId);
+
+    const targePost = await postMongoOperations.findOne({ _id: postId }, { projection: { _terms: false } });
+
+    if (!targePost) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40402);
+    }
+
+    switch (action) {
+
+        case 'unlike': {
+            await adjacencyMongoOperations.updateOne(
+                { from: user._id, fromType: 'user', to: targePost._id, toType: 'post', type: 'view' },
+                { $set: { 'properties.liked': false } },
+                { upsert: true }
+            );
+
+            postMongoOperations.updateOne({ _id: targePost._id }, { $inc: { 'counter.likes': 1 } }).catch();
+            ctx.returnData(false);
+            break;
+        }
+
+        default: {
+            await adjacencyMongoOperations.updateOne(
+                { from: user._id, fromType: 'user', to: targePost._id, toType: 'post', type: 'view' },
+                { $set: { liked: true } },
+                { upsert: true }
+            );
+
+            postMongoOperations.updateOne({ _id: targePost._id }, { $inc: { 'counter.likes': 1 } }).catch();
+            ctx.returnData(true);
+        }
+    }
 
     return next();
 }

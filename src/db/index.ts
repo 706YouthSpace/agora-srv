@@ -4,6 +4,7 @@ import { AdjacencyMongoOperations } from './adjacency';
 import { PostMongoOperations } from './post';
 import { FileMongoOperations } from './file';
 import { DirMongoOperations } from './dir';
+import { WxTplMsgQuotaOperations } from './wxa-tpl-msg-quota';
 
 
 export const userMongoOperations: UserMongoOperations = x706Database.collection('users', UserMongoOperations);
@@ -11,3 +12,4 @@ export const adjacencyMongoOperations: AdjacencyMongoOperations = x706Database.c
 export const postMongoOperations: PostMongoOperations = x706Database.collection('posts', PostMongoOperations);
 export const fileMongoOperations: FileMongoOperations = x706Database.collection('files', FileMongoOperations);
 export const dirMongoOperations: DirMongoOperations = x706Database.collection('dirs', DirMongoOperations);
+export const wtmQuotaOperations: WxTplMsgQuotaOperations = x706Database.collection('wtmQuotas', WxTplMsgQuotaOperations);
