@@ -201,6 +201,31 @@ export async function wxaSetMyProfilePrivaicyController(
     return next();
 }
 
+export async function wxaSetNotificationPrivaicyController(
+    ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility,
+    next: () => Promise<unknown>
+) {
+
+    const currentUser = await ctx.wxaFacl.assertLoggedIn();
+
+    const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+
+    if (!user) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40401);
+    }
+
+    const notificationPrivacyToSet = ctx.request.body;
+
+    const newUser = await userMongoOperations.updatePreferences({ notificationPrivacy: notificationPrivacyToSet }, user.wxaId, user.wxOpenId);
+
+    const brefUser = userMongoOperations.makeBrefUser(newUser!, 'private');
+
+    ctx.returnData(brefUser);
+
+    return next();
+}
+
 export async function wxaSetPrivilegedUserController(
     ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility,
     next: () => Promise<unknown>

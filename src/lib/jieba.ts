@@ -26,6 +26,8 @@ export class JiebaAnalyzer {
                 this.stopWords.add(word);
             }
         });
+        this.stopWords.add(' ');
+        this.stopWords.add('\n');
     }
 
     analyze(content: string) {

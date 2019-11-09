@@ -5,7 +5,6 @@ import { userMongoOperations } from '../db';
 import { ParsedContext, ContextFileUtils } from './middlewares/body-parser';
 import { ContextRESTUtils } from './middlewares/rest';
 import { ApplicationError } from '../lib/errors';
-import { ObjectId } from 'mongodb';
 import _ from 'lodash';
 import { ContextValidator } from './middlewares/validator';
 import CrappyKoaRouterThatNeedsReplacement from 'koa-router';
@@ -31,7 +30,7 @@ export async function addTplMsgQuotaController(
             token = ctx.body.formId;
 
             // Real formIds were not likely to contain spaces.
-            if (token.indexOf(' ') >= 0) {
+            if (!token || token.indexOf(' ') >= 0) {
                 ctx.returnData(false);
                 
                 return next();

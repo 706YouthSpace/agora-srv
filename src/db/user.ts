@@ -46,6 +46,10 @@ export interface User {
             [k: string]: 'public' | 'contact' | 'private';
         };
 
+        notificationPrivacy?: {
+            [k: string]: boolean;
+        };
+
         friending?: 'needs-confirmation' | 'allow-anyone' | 'disallow-everyone';
     },
 
@@ -63,13 +67,19 @@ const profileKeys = new Set([
     'brefSkills', 'brefConcerns', 'brefOthers'
 ]);
 
+const notificationKeys = new Set([
+    'someoneFriendMe', 'someoneMessageMe',
+    'anyNewPost', 'myPostCommented', 'participatedPostCommented', 'postReferenced'
+]);
+
+
 const MAX_BREF_LENGTH = 512;
 const MAX_GENERAL_STRING_LENGTH = 64;
 
 export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
 
     termAnalyze(record: Partial<User>) {
-        const fieldsToInsert = ['nickName', 'realName', 'city', 'province', 'country', 'school', 'tags', 'organization', 'position'];
+        const fieldsToInsert = ['wxId', 'cellphone', 'nickName', 'realName', 'city', 'province', 'country', 'school', 'tags', 'organization', 'position'];
         const fieldsToAnalyze = ['school', 'organization', 'position', 'brefExperience', 'brefSkills', 'brefConcerns', 'brefOthers'];
         const result: { [k: string]: number } = {};
 
@@ -189,10 +199,53 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
                     }
 
                     if (_.isEmpty(resultPart1)) {
-                        break;
+                        continue;
                     }
 
                     result.profilePrivacy = resultPart1;
+
+                    break;
+                }
+
+                case 'notificationPrivacy': {
+                    if (typeof v !== 'object') {
+                        continue;
+                    }
+
+                    const resultPart2: any = {};
+                    for (const [pk, pv] of Object.entries(v)) {
+                        if (!notificationKeys.has(pk)) {
+                            continue;
+                        }
+                        if (pv === undefined) {
+                            continue;
+                        }
+                        resultPart2[pk] = Boolean(pv);
+                    }
+
+                    if (_.isEmpty(resultPart2)) {
+                        continue;
+                    }
+
+                    result.notificationPrivacy = resultPart2;
+
+                    break;
+                }
+
+                case 'friending': {
+                    switch (v) {
+                        case 'needs-confirmation':
+                        case 'allow-anyone':
+                        case 'disallow-everyone': {
+                            result.friending = v;
+
+                            break;
+                        }
+
+                        default: {
+                            void 0;
+                        }
+                    }
 
                     break;
                 }

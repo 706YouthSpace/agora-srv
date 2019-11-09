@@ -48,12 +48,14 @@ export async function uploadFileToPersonalDrive(
 
     const fileRecords = await Promise.all(files.map(async (file) => {
         const fileHash = await file.sha256Sum;
+        const fileSize = await file.size;
         await sha256Storage.storeFancyFile(file, fileHash);
         const fileRecord = await fileMongoOperations.newRecord(
             targetDir ? targetDir._id : user._id,
             targetDir ? 'dir' : 'user',
             fileHash, file.claimedName || 'file.bin',
             file.claimedMime,
+            fileSize
         );
 
         return fileRecord;

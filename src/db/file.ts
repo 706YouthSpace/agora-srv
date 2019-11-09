@@ -15,6 +15,7 @@ export interface FileRecord {
     name: string;
 
     mimeType?: string;
+    size?: number;
 
     properties?: {
         [k: string]: any;
@@ -26,7 +27,7 @@ export interface FileRecord {
 
 export class FileMongoOperations extends MongoCollection<FileRecord> {
 
-    newRecord(ownerId: ObjectId, ownerType: string, sha256SumHex: string, name: string, mimeType?: string, properties?: object) {
+    newRecord(ownerId: ObjectId, ownerType: string, sha256SumHex: string, name: string, mimeType?: string, size?: number, properties?: object) {
 
         if (!(ownerId && ownerType && sha256SumHex && name)) {
             // tslint:disable-next-line: no-magic-numbers
@@ -42,6 +43,7 @@ export class FileMongoOperations extends MongoCollection<FileRecord> {
             name,
 
             mimeType,
+            size,
 
             properties,
 
@@ -50,7 +52,7 @@ export class FileMongoOperations extends MongoCollection<FileRecord> {
         });
     }
 
-    upsertRecord(ownerId: ObjectId, ownerType: string, sha256SumHex: string, name: string, mimeType?: string, properties?: object) {
+    upsertRecord(ownerId: ObjectId, ownerType: string, sha256SumHex: string, name: string, mimeType?: string, size?: number, properties?: object) {
 
         if (!(ownerId && ownerType && sha256SumHex && name)) {
             // tslint:disable-next-line: no-magic-numbers
@@ -68,7 +70,8 @@ export class FileMongoOperations extends MongoCollection<FileRecord> {
                 name
             },
             {
-                $set: _.isEmpty(properties) ? { mimeType, properties, updatedAt: ts } : vectorize({ mimeType, properties, updatedAt: ts }),
+                $set: _.isEmpty(properties) ?
+                    { mimeType, size, properties, updatedAt: ts } : vectorize({ mimeType, size, properties, updatedAt: ts }),
                 $setOnInsert: {
                     createdAt: ts
                 }

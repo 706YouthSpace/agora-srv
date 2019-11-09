@@ -18,6 +18,7 @@ export interface Post {
 
     author: ObjectId;
     inReplyToPost?: ObjectId;
+    replyIndex?: number;
     postReferences?: ObjectId[];
 
     content: string;
