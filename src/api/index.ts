@@ -10,7 +10,8 @@ import {
     wxaLoginController, wxaGetMyProfileController, wxaGetOtherUserProfileController,
     wxaUserBazaarController, wxaSetMyProfileController, wxaSetMyProfilePrivaicyController,
     wxaSetPrivilegedUserController, wxaSetUserActivationController, wxaFriendingController,
-    wxaGetFriendsController
+    wxaGetFriendsController,
+    wxaSearchUsersController
 } from './user';
 
 import bodyParser from 'koa-bodyparser';
@@ -73,6 +74,7 @@ router.post('/my/files', uploadFileToPersonalDrive);
 
 
 router.get('/users', wxaUserBazaarController);
+router.get('/users/search', wxaSearchUsersController);
 router.post('/su', wxaSetPrivilegedUserController);
 
 router.get('/user/:uid/profile', wxaGetOtherUserProfileController);

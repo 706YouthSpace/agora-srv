@@ -80,7 +80,7 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
 
     termAnalyze(record: Partial<User>) {
         const fieldsToInsert = ['wxId', 'cellphone', 'nickName', 'realName', 'city', 'province', 'country', 'school', 'tags', 'organization', 'position'];
-        const fieldsToAnalyze = ['school', 'organization', 'position', 'brefExperience', 'brefSkills', 'brefConcerns', 'brefOthers'];
+        const fieldsToAnalyze = ['nickName', 'school', 'organization', 'position', 'brefExperience', 'brefSkills', 'brefConcerns', 'brefOthers'];
         const result: { [k: string]: number } = {};
 
         for (const f of fieldsToInsert) {
@@ -104,6 +104,19 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
             const partialResult = jiebaService.analyzeForIndex(val);
 
             for (const [k, v] of Object.entries(partialResult)) {
+                if (result[k] && alreadyInserted) {
+                    continue;
+                }
+                result[k] = (result[k] || 0) + v;
+            }
+        }
+
+        const nickName = _.get(record, `profile.nickName`);
+        // tslint:disable-next-line: no-magic-numbers
+        if (nickName.length <= 5) {
+            const partialResult = jiebaService.analyzeSmall(nickName, 1);
+            for (const [k, v] of Object.entries(partialResult)) {
+                const alreadyInserted = fieldsToInsert.indexOf(k) >= 0;
                 if (result[k] && alreadyInserted) {
                     continue;
                 }
@@ -289,7 +302,7 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
         const result = await this.findOneAndUpdate({ wxaId, wxOpenId }, { $set: query }, { returnOriginal: false });
 
         if (result) {
-            this.tfReIndex(result._id).catch(logger.error);
+            await this.tfReIndex(result._id).catch(logger.error);
         }
 
         return result;

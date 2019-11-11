@@ -467,3 +467,55 @@ export async function wxaDecryptController(
 
     return next();
 }
+
+export async function wxaSearchUsersController(
+    ctx: Context & CrappyKoaRouterThatNeedsReplacement.IRouterContext &
+        ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator,
+    next: () => Promise<unknown>
+) {
+
+    // const currentUser = await ctx.wxaFacl.isLoggedIn();
+
+    const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    const anchor = Math.abs(parseInt(ctx.query.anchor));
+    const keywords = ctx.query.keywords;
+
+    const query: any = { profile: { $exists: true } };
+
+    // tslint:disable-next-line: no-magic-numbers
+    await ctx.validator.assertValid('keywords', keywords, 'text', 1, 64);
+    let skip = 0;
+    if (anchor) {
+        skip = anchor;
+    }
+    const searchResults = await userMongoOperations.bm25Aggregate(keywords, query, limit, skip);
+    // if (currentUser) {
+    //     _.set(query, '_id.$ne', new ObjectId(currentUser.cuid));
+    // }
+
+    if (!(searchResults && searchResults.length)) {
+        ctx.returnData([]);
+
+        return next();
+    }
+
+    const resultIds = searchResults.map((x) => x._id);
+
+    const users = await userMongoOperations.getUsersById(resultIds);
+
+    const userBrefs = users.map((x) => userMongoOperations.makeBrefUser(x));
+
+    const userIndex = _.keyBy(userBrefs, (x) => x._id.toHexString());
+
+    const final = [];
+
+    for (const x of searchResults) {
+        const user: any = userIndex[x._id.toHexString()];
+        user.score = x.score;
+        final.push(user);
+    }
+
+    ctx.returnData(final);
+
+    return next();
+}

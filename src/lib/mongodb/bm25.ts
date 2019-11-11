@@ -69,7 +69,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
                                 input: '$_terms',
                                 initialValue: 0,
                                 in: {
-                                    $sum: ["$$value", '$$this.v']
+                                    $add: ["$$value", '$$this.tf']
                                 }
                             }
                         }
@@ -119,7 +119,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
         return this.tfIndex(record);
     }
 
-    async bm25Aggregate(queryString: string, additionalQuery?: FilterQuery<T>, limit = 1000) {
+    async bm25Aggregate(queryString: string, additionalQuery?: FilterQuery<T>, limit = 1000, skip = 0) {
 
         const queryTerms = await this.queryAnalyze(queryString);
 
@@ -144,7 +144,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
         const docCount = this.totalCount;
 
         const idfs = queryTerms.map(async (x: string) => {
-            const n = await this.countDocuments({ _terms: x } as any);
+            const n = await this.countDocuments({ '_terms.t': x } as any);
 
             // tslint:disable-next-line: no-magic-numbers
             return Math.log10((docCount - n + 0.5) / (n + 0.5));
@@ -157,8 +157,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
         const b = 0.75;
         const theta = 1;
         const avgdl = this.avgdl;
-
-        const cursor = await this.aggregate(
+        const cursor = await this.aggregate<{ _id: ObjectId; score: number }>(
             [
                 {
                     $match: {
@@ -173,7 +172,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
                                 input: '$_terms',
                                 initialValue: 0,
                                 in: {
-                                    $sum: ["$$value", '$$this.v']
+                                    $add: ["$$value", '$$this.tf']
                                 }
                             }
                         }
@@ -230,13 +229,13 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
                                             $divide: [
                                                 {
                                                     $multiply: [
-                                                        '$_term.v',
+                                                        '$_terms.tf',
                                                         k1 + 1
                                                     ]
                                                 },
                                                 {
                                                     $sum: [
-                                                        '$_term.v',
+                                                        '$_terms.tf',
                                                         {
                                                             $multiply: [
                                                                 k1,
@@ -274,7 +273,8 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
                         score: { $sum: '$bm25' }
                     }
                 },
-                { $sort: { score: 1 } },
+                { $sort: { score: -1 } },
+                { $skip: skip },
                 { $limit: limit }
             ],
             {

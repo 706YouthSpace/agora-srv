@@ -58,5 +58,19 @@ export class JiebaAnalyzer {
         return result;
     }
 
+    analyzeSmall(content: string, factor = 2) {
+        const tokens: string[] = jieba.cutSmall(content, factor);
+        const result: {[k: string]: number} = {};
+
+        for (const token of tokens) {
+            if (this.stopWords.has(token)) {
+                continue;
+            }
+            result[token] = ((result[token] || 0) + 1);
+        }
+
+        return result;
+    }
+
 }
 

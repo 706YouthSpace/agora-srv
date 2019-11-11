@@ -5,7 +5,8 @@
   "main": "build/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "tsc": "rsync -a --exclude '*.ts' --delete-excluded  src/ build/ && tsc -p ./tsconfig.json"
+    "tsc": "rsync -a --exclude '*.ts' --delete-excluded  src/ build/ && tsc -p ./tsconfig.json",
+    "watch": "rsync -a --exclude '*.ts' --delete-excluded  src/ build/ && tsc -p ./tsconfig.json --watch"
   },
   "author": "yanlong.wang@naiver.org",
   "license": "AGPL-3.0",
@@ -14,6 +15,7 @@
     "base62": "^2.0.1",
     "busboy": "^0.3.1",
     "change-case": "^3.1.0",
+    "commander": "^4.0.0",
     "fs-extra": "^8.1.0",
     "gm": "^1.23.1",
     "ioredis": "^4.14.1",
@@ -36,6 +38,7 @@
     "uuid": "^3.3.2",
     "winston": "^3.2.1",
     "ws": "^7.1.2",
+    "xlsx": "^0.15.1",
     "xml2js": "^0.4.22"
   },
   "devDependencies": {
