@@ -13,6 +13,7 @@ import CrappyKoaRouterThatNeedsReplacement from 'koa-router';
 import { Post } from '../db/post';
 import { FileRecord } from '../db/file';
 import { urlSignatureManager } from '../services/url-signature';
+import { User } from '../db/user';
 
 const fileServerBaseUri = 'https://x706.access.naiver.org/file/';
 
@@ -82,6 +83,8 @@ export async function createNewPostController(
     }
 
     const post = await postMongoOperations.newPost(draft);
+
+    userMongoOperations.updateOne({ _id: user._id }, { $inc: { 'counter.posts': 1 } }).catch();
 
     ctx.returnData(post);
 
@@ -189,6 +192,8 @@ export async function commentOnPostController(
         patchedPost.video = signDownloadUrl(post.video);
     }
 
+    userMongoOperations.updateOne({ _id: user._id }, { $inc: { 'counter.posts': 1 } }).catch();
+
     ctx.returnData(patchedPost);
 
     const r = next();
@@ -209,6 +214,43 @@ export async function commentOnPostController(
     return r;
 }
 
+async function fillAuthorAndSignUrlsForPosts(posts: Post[]) {
+    const authors = (await userMongoOperations.getUsersById(posts.map((x) => x.author))).map((x) => userMongoOperations.makeBrefUser(x));
+
+    const authorsMap = _.keyBy(authors, (x) => x._id.toHexString());
+
+    for (const post of posts) {
+        (post as any).author = authorsMap[post.author.toHexString()];
+        if (post.images) {
+            (post as any).images = post.images.map(signDownloadUrl);
+        }
+        if (post.video) {
+            (post as any).video = signDownloadUrl(post.video);
+        }
+    }
+
+    return posts;
+}
+
+async function fillPersonalActionsForPosts(user: User, posts: Post[]) {
+    const postIndex = _.keyBy(posts, (x) => x._id.toHexString());
+    const postViews = await adjacencyMongoOperations.simpleFind({
+        from: user._id, fromType: 'user', to: { $in: posts.map((x) => x._id) }, toType: 'post',
+        type: 'view'
+    });
+
+    for (const view of postViews) {
+        if (_.get(view, 'properties.liked')) {
+            const targetPost = postIndex[view.to.toHexString()];
+            if (targetPost) {
+                (targetPost as any).liked = true;
+            }
+        }
+    }
+
+    return posts;
+}
+
 export async function getPostsController(
     ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator & CrappyKoaRouterThatNeedsReplacement,
     next: () => Promise<unknown>
@@ -216,57 +258,122 @@ export async function getPostsController(
     const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const anchor = _.get(ctx, 'query.anchor') || _.get(ctx, 'request.body.anchor');
 
+    const byComment = Boolean(_.get(ctx, 'query.byComment'));
+    const byLikes = Boolean(_.get(ctx, 'query.byLikes'));
+
+    const uid = _.get(ctx, 'params.uid') || _.get(ctx, 'query.uid');
+    const tag = _.get(ctx, 'query.tag');
+
     const query: any = { blocked: { $ne: true }, inReplyToPost: { $exists: false } };
-    if (anchor && ctx.validator.assertValid('anchor', `${anchor}`, 'timestamp')) {
-        query.updatedAt = { $lt: parseInt(anchor) };
+    let sort: any = { updatedAt: -1 };
+    let posts;
+    if (anchor) {
+        await ctx.validator.assertValid('anchor', `${anchor}`, 'timestamp');
+    }
+    if (uid) {
+        await ctx.validator.assertValid('uid', uid, 'ObjectId');
+        query.author = new ObjectId(uid);
+        sort = { createdAt: -1 };
+        if (anchor) {
+            query.createdAt = { $lt: parseInt(anchor) };
+        }
+
+        if (byComment) {
+            query.inReplyToPost = { $exists: true };
+            const commentedPosts = await (await postMongoOperations.aggregate<{ _id: ObjectId; commentedAt: number }>([
+                {
+                    $match: query
+                },
+                {
+                    $group: {
+                        _id: '$inReplyToPost',
+                        commentedAt: { $max: '$createdAt' }
+                    }
+                },
+                {
+                    $sort: { commentedAt: -1 }
+                },
+                {
+                    $limit: limit
+                }
+            ])).toArray();
+
+            const postIds = commentedPosts.map((x) => x._id);
+
+            const postsDraft = await postMongoOperations.simpleFind(
+                { _id: { $in: postIds }, blocked: { $ne: true }, inReplyToPost: { $exists: false } }
+            );
+            const postIndex = _.keyBy(postsDraft, (x) => x._id.toHexString());
+
+            posts = [];
+            for (const x of commentedPosts) {
+                const post = postIndex[x._id.toHexString()];
+                if (!post) {
+                    continue;
+                }
+                (post as any).commentedAt = x.commentedAt;
+                posts.push(post);
+            }
+        } else if (byLikes) {
+            const q: any = {
+                from: new ObjectId(uid), fromType: 'user', toType: 'post',
+                type: 'view', 'properties.liked': true
+            };
+            if (anchor) {
+                q.updatedAt = { $lt: anchor };
+            }
+            const postViews = await adjacencyMongoOperations.simpleFind(q, { sort: { updatedAt: -1 }, limit });
+
+            const postIds = postViews.map((x) => x.to);
+
+            const postsDraft = await postMongoOperations.simpleFind(
+                { _id: { $in: postIds }, blocked: { $ne: true }, inReplyToPost: { $exists: false } }
+            );
+
+            const postIndex = _.keyBy(postsDraft, (x) => x._id.toHexString());
+
+            posts = [];
+            for (const x of postViews) {
+                const post = postIndex[x.to.toHexString()];
+                if (!post) {
+                    continue;
+                }
+                (post as any).likedAt = x.updatedAt;
+                (post as any).liked = true;
+                posts.push(post);
+            }
+        }
+
+    } else {
+        if (anchor) {
+            query.updatedAt = { $lt: parseInt(anchor) };
+        }
+
     }
 
+    if (tag) {
+        await ctx.validator.assertValid('tag', tag, 'text', 1, 128);
+        query.tag = tag;
+    }
 
-    const posts = await postMongoOperations.simpleFind(query, { limit, sort: { updatedAt: -1 } });
-
-    const authors = (await userMongoOperations.getUsersById(posts.map((x) => x.author))).map((x) => userMongoOperations.makeBrefUser(x));
-
-    const authorsMap = _.keyBy(authors, (x) => x._id.toHexString());
-
-    const patchedPosts = posts.map((post) => {
-        const patchedPost: any = _.clone(post);
-        patchedPost.author = authorsMap[post.author.toHexString()];
-        if (post.images) {
-            patchedPost.images = post.images.map(signDownloadUrl);
-        }
-        if (post.video) {
-            patchedPost.video = signDownloadUrl(post.video);
-        }
-
-        return patchedPost;
-    });
+    if (!posts) {
+        posts = await postMongoOperations.simpleFind(query, { limit, sort });
+    }
 
     const currentUser = await ctx.wxaFacl.isLoggedIn();
-    if (currentUser) {
+    if (currentUser && !byLikes) {
         const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
 
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);
         }
-        const postIndex = _.keyBy(patchedPosts, (x) => x._id.toHexString());
-        const postViews = await adjacencyMongoOperations.simpleFind({
-            from: user._id, fromType: 'user', to: { $in: patchedPosts.map((x) => x._id) }, toType: 'post',
-            type: 'view'
-        });
-
-        for (const view of postViews) {
-            if (_.get(view, 'properties.liked')) {
-                const targetPost = postIndex[view.to.toHexString()];
-                if (targetPost) {
-                    targetPost.liked = true;
-                }
-            }
-        }
+        await fillPersonalActionsForPosts(user, posts);
     }
 
+    await fillAuthorAndSignUrlsForPosts(posts);
 
-    ctx.returnData(patchedPosts);
+    ctx.returnData(posts);
 
     return next();
 }
@@ -505,3 +612,95 @@ export async function likePostController(
 
     return next();
 }
+
+export async function wxaSearchPostsController(
+    ctx: Context & CrappyKoaRouterThatNeedsReplacement.IRouterContext &
+        ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator,
+    next: () => Promise<unknown>
+) {
+
+    // const currentUser = await ctx.wxaFacl.isLoggedIn();
+
+    const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+    const anchor = Math.abs(parseInt(ctx.query.anchor));
+    const keywords = ctx.query.keywords;
+
+    const query: any = { blocked: { $ne: true }, inReplyToPost: { $exists: false } };
+
+    // tslint:disable-next-line: no-magic-numbers
+    await ctx.validator.assertValid('keywords', keywords, 'text', 1, 64);
+    let skip = 0;
+    if (anchor) {
+        skip = anchor;
+    }
+    const searchResults = await postMongoOperations.bm25Aggregate(keywords, query, limit, skip);
+    // if (currentUser) {
+    //     _.set(query, '_id.$ne', new ObjectId(currentUser.cuid));
+    // }
+
+    if (!(searchResults && searchResults.length)) {
+        ctx.returnData([]);
+
+        return next();
+    }
+
+    const resultIds = searchResults.map((x) => x._id);
+
+    const posts = await postMongoOperations.simpleFind({ _id: { $in: resultIds } });
+
+    const authors = (await userMongoOperations.getUsersById(posts.map((x) => x.author))).map((x) => userMongoOperations.makeBrefUser(x));
+
+    const authorsMap = _.keyBy(authors, (x) => x._id.toHexString());
+
+    const patchedPosts = posts.map((post) => {
+        const patchedPost: any = _.clone(post);
+        patchedPost.author = authorsMap[post.author.toHexString()];
+        if (post.images) {
+            patchedPost.images = post.images.map(signDownloadUrl);
+        }
+        if (post.video) {
+            patchedPost.video = signDownloadUrl(post.video);
+        }
+
+        return patchedPost;
+    });
+
+    const postIndex = _.keyBy(patchedPosts, (x) => x._id.toHexString());
+
+    const currentUser = await ctx.wxaFacl.isLoggedIn();
+    if (currentUser) {
+        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+
+        if (!user) {
+            // tslint:disable-next-line: no-magic-numbers
+            throw new ApplicationError(40401);
+        }
+
+        const postViews = await adjacencyMongoOperations.simpleFind({
+            from: user._id, fromType: 'user', to: { $in: patchedPosts.map((x) => x._id) }, toType: 'post',
+            type: 'view'
+        });
+
+        for (const view of postViews) {
+            if (_.get(view, 'properties.liked')) {
+                const targetPost = postIndex[view.to.toHexString()];
+                if (targetPost) {
+                    targetPost.liked = true;
+                }
+            }
+        }
+    }
+
+    const final = [];
+
+    for (const x of searchResults) {
+        const post: any = postIndex[x._id.toHexString()];
+        post.score = x.score;
+        final.push(post);
+    }
+
+    ctx.returnData(final);
+
+    return next();
+}
+

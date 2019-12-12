@@ -21,7 +21,10 @@ import { injectLoggerMiddleware } from './middlewares/logger';
 import { injectValidatorMiddleware } from './middlewares/validator';
 import { multiParse } from './middlewares/body-parser';
 import { uploadFileToPersonalDrive, getFileController, getFileWithImageThumbnailController } from './file';
-import { createNewPostController, commentOnPostController, getPostsController, getPostController, getCommentsController, likePostController } from './post';
+import {
+    createNewPostController, commentOnPostController, getPostsController, getPostController,
+    getCommentsController, likePostController, wxaSearchPostsController
+} from './post';
 import { autoSessionMiddleware } from './middlewares/session';
 import { injectSessionWxaFacilityMiddleware } from './middlewares/session-wxa';
 
@@ -82,6 +85,7 @@ router.get('/user/:uid/profile', wxaGetOtherUserProfileController);
 router.post('/user/:uid/activated', wxaSetUserActivationController);
 
 router.get('/user/:uid/friends', wxaGetFriendsController);
+router.get('/user/:uid/posts', getPostsController);
 
 router.post('/posts', createNewPostController);
 
@@ -91,6 +95,7 @@ router.post('/post/:postId/liked', likePostController);
 router.delete('/post/:postId/liked', likePostController);
 
 router.get('/posts', getPostsController);
+router.get('/posts/search', wxaSearchPostsController);
 router.get('/post/:postId', getPostController);
 
 router.get('/post/:postId', getPostController);

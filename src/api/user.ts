@@ -70,6 +70,7 @@ export async function wxaGetOtherUserProfileController(
     }
 
     const queryId = ctx.query.uid || _.get(ctx, 'params.uid');
+    const incView = Boolean(ctx.query.incView);
 
     await ctx.validator.assertValid('uid', queryId, 'ObjectId');
 
@@ -115,10 +116,14 @@ export async function wxaGetOtherUserProfileController(
         // tslint:disable-next-line: no-magic-numbers
         throw new ApplicationError(40402);
     }
+    if (incView) {
+        await userMongoOperations.updateOne({ _id: thatUser._id }, { $inc: { 'counter.views': 1 } });
+    }
 
     const thatUserBref = userMongoOperations.makeBrefUser(thatUser, accessLevel);
     (thatUserBref as any).friendship = friendshipBref;
     ctx.returnData(thatUserBref);
+
 
     return next();
 }
@@ -339,6 +344,9 @@ export async function wxaFriendingController(
             'friend'
         );
     }
+
+    const friendCount = await adjacencyMongoOperations.countDocuments({ type: 'friend', fromType: 'user', toType: 'user', to: thatUser._id, 'properties.blacklisted': { $ne: true } });
+    await userMongoOperations.updateOne({ _id: thatUser._id }, { $set: { 'counter.friends': friendCount } });
 
     ctx.returnData(true);
 

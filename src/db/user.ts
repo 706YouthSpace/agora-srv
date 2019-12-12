@@ -6,6 +6,7 @@ import { wxService } from '../services/wexin';
 import { JiebaBm25EnabledCollection, TFIDFFacl } from '../lib/mongodb/bm25';
 import { jiebaService } from '../services/nlp';
 import { logger } from '../services/logger';
+import { pinyinify } from '../lib/pinyin';
 
 export interface User {
     _id: ObjectId;
@@ -53,7 +54,7 @@ export interface User {
         friending?: 'needs-confirmation' | 'allow-anyone' | 'disallow-everyone';
     },
 
-    counters?: {
+    counter?: {
         [k: string]: number;
     }
 
@@ -282,7 +283,7 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
 
         return this.findOneAndUpdate(
             { wxOpenId },
-            { $set: { wxaId, wxUnionId, lastActiveAt: ts }, $setOnInsert: { createdAt: ts } },
+            { $set: { wxaId, wxUnionId, lastActiveAt: ts }, $inc: { 'counter.logins': 1 }, $setOnInsert: { createdAt: ts } },
             { upsert: true, returnOriginal: false }
         );
     }
@@ -344,6 +345,10 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
         }
 
         brefUser.profile = resultProfile;
+
+        if (resultProfile.nickName) {
+            resultProfile.nickNamePinyin = pinyinify(resultProfile.nickName);
+        }
 
         if (level !== 'private') {
             delete brefUser.preferences;
