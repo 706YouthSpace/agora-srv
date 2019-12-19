@@ -150,7 +150,7 @@ export async function wxaUserBazaarController(
     //     _.set(query, '_id.$ne', new ObjectId(currentUser.cuid));
     // }
 
-    const users = await userMongoOperations.simpleFind(query, { sort: { _id: -1 }, limit });
+    const users = await userMongoOperations.simpleFind(query, { sort: { lastActiveAt: -1, _id: -1 }, limit });
     const userBrefs = users.map((x) => userMongoOperations.makeBrefUser(x));
 
     ctx.returnData(userBrefs);

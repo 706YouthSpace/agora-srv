@@ -23,6 +23,8 @@ export interface FileRecord {
 
     createdAt: number;
     updatedAt: number;
+
+    blocked?: boolean;
 }
 
 export class FileMongoOperations extends MongoCollection<FileRecord> {

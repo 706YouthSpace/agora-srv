@@ -53,7 +53,7 @@ import {
     WECHAT_API_ACCESS_REALM,
     WxoPreAuthCodeReceipt, WxoComponentAccessTokenReceipt,
     WxoClientAuthorizationReceipt, WxoClientAuthorizationTokenRefreshReceipt,
-    WxoClientInfoReceipt, WxoClientOptionReceipt, WxoAccountOpsWithAppIdReceipt
+    WxoClientInfoReceipt, WxoClientOptionReceipt, WxoAccountOpsWithAppIdReceipt, WxoAccessTokenReceipt
 } from './interface';
 import { wxErrors } from './wx-errors';
 import { retry } from '../retry-decorator';
@@ -69,6 +69,7 @@ const MAX_TRIES_TWO = 2;
 
 const COMPONENT_VERIFY_TICKET = 'component-access-ticket';
 const COMPONENT_ACCESS_TOKEN = 'component-access-token';
+const ACCESS_TOKEN = 'access-token';
 
 export class WxPlatformError extends ApplicationError {
     err: WeChatErrorReceipt;
@@ -193,6 +194,30 @@ export class WxPlatformService extends EventEmitter {
         this.storage.set(key, ComponentAccessToken);
 
         return ComponentAccessToken;
+    }
+
+    _makeAccessTokenClass() {
+        const key = 'AccessTokenClass';
+        if (this.storage.has(key)) {
+            return this.storage.get(key);
+        }
+        // tslint:disable-next-line: no-this-assignment
+        const wxService = this;
+        // tslint:disable-next-line: max-classes-per-file
+        class AccessToken extends SharedState {
+            async next() {
+                const newTokenReceipt = await wxService.getAccessToken();
+
+                return {
+                    value: newTokenReceipt.access_token,
+                    expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
+                };
+            }
+        }
+
+        this.storage.set(key, AccessToken);
+
+        return AccessToken;
     }
 
     _keyof(key: string, clientAppId?: string) {
@@ -399,6 +424,11 @@ export class WxPlatformService extends EventEmitter {
                     break;
                 }
 
+                case 'wxa_media_check': {
+                    this.emit('wxaMediaChecked', message);
+                    break;
+                }
+
                 case 'user_enter_tempsession': {
                     this.emit('sessionEnter', message);
                     break;
@@ -513,16 +543,36 @@ export class WxPlatformService extends EventEmitter {
         return result as WxoComponentAccessTokenReceipt;
     }
 
-    get _localComponentAccessToken() {
+    get localComponentAccessToken() {
         const componentAccessToken = this.sharedState.create<string>(this._makeComonentAccessTokenClass(), this._keyof(COMPONENT_ACCESS_TOKEN));
 
         return componentAccessToken.value;
     }
 
+    get localAccessToken() {
+        const accessToken = this.sharedState.create<string>(this._makeAccessTokenClass(), this._keyof(ACCESS_TOKEN));
+        
+        return accessToken.value;
+    }
+
+    @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
+    async getAccessToken(appId?: string, appSecret?: string) {
+        const result = await this._getRequest(
+            'https://api.weixin.qq.com/cgi-bin/token',
+            {
+                appid: appId || this.config.appId,
+                secret: appSecret || this.config.appSecret,
+                grant_type: 'client_credential'
+            }
+        );
+
+        return result as WxoAccessTokenReceipt;
+    }
+
     async getPreAuthCode(pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/cgi-bin/component/api_create_preauthcode',
@@ -539,7 +589,7 @@ export class WxPlatformService extends EventEmitter {
     async getClientAccessToken(clientAuthorizationCode: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/cgi-bin/component/api_query_auth',
@@ -557,7 +607,7 @@ export class WxPlatformService extends EventEmitter {
     async refreshClientAccessToken(clientAppId: string, clientRefreshToken: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/cgi-bin/component/api_authorizer_token',
@@ -576,7 +626,7 @@ export class WxPlatformService extends EventEmitter {
     async getClientInfo(clientAppId: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_info',
@@ -594,7 +644,7 @@ export class WxPlatformService extends EventEmitter {
     async getClientOption(clientAppId: string, optionName: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_option',
@@ -612,7 +662,7 @@ export class WxPlatformService extends EventEmitter {
     async setClientOption(clientAppId: string, optionName: string, optionValue: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_option',
@@ -1243,7 +1293,7 @@ export class WxPlatformService extends EventEmitter {
     async wxaGetAllCodeDrafts(pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._getRequest(
             'https://api.weixin.qq.com/wxa/gettemplatedraftlist',
@@ -1256,7 +1306,7 @@ export class WxPlatformService extends EventEmitter {
     async wxaGetAllCodeTemplates(pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._getRequest(
             'https://api.weixin.qq.com/wxa/gettemplatelist',
@@ -1269,7 +1319,7 @@ export class WxPlatformService extends EventEmitter {
     async wxaComposeCodeTemplate(draftId: number, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/wxa/addtotemplate',
@@ -1283,7 +1333,7 @@ export class WxPlatformService extends EventEmitter {
     async wxaRemoveFromCodeTemplate(templateId: number, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._postRequest(
             'https://api.weixin.qq.com/wxa/deletetemplate',
@@ -1299,7 +1349,7 @@ export class WxPlatformService extends EventEmitter {
     async wxaExchangeForSessionKey(appId: string, code: string, pComponentAccessToken?: string) {
         let componentAccessToken = pComponentAccessToken;
         if (!componentAccessToken) {
-            componentAccessToken = await this._localComponentAccessToken;
+            componentAccessToken = await this.localComponentAccessToken;
         }
         const result = await this._getRequest(
             'https://api.weixin.qq.com/sns/component/jscode2session',
@@ -1712,6 +1762,39 @@ export class WxPlatformService extends EventEmitter {
         }
 
         return rBody as WeChatMediaUploadReceipt;
+    }
+
+    @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
+    async wxaMediaCheckAsync(
+        clientAccessToken: string, mediaUrl: string, type: 'image' | 'audio' = 'image'
+    ) {
+        const result = await this._postRequest(
+            `https://api.weixin.qq.com/wxa/media_check_async`,
+            { media_url: mediaUrl, media_type: type === 'audio' ? 2 : 1},
+            { access_token: clientAccessToken }
+        );
+
+        return result as {
+            trace_id: string;
+            errcode: number;
+            errmsg: string;
+        };
+    }
+
+    @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
+    async wxaMsgSecCheck(
+        clientAccessToken: string, content: string
+    ) {
+        const result = await this._postRequest(
+            `https://api.weixin.qq.com/wxa/msg_sec_check`,
+            { content },
+            { access_token: clientAccessToken }
+        );
+
+        return result as {
+            errcode: number;
+            errmsg: 'ok' | 'risky';
+        };
     }
 }
 

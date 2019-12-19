@@ -5,7 +5,7 @@ import _ from 'lodash';
 import { Redis } from 'ioredis';
 import { EventEmitter } from 'events';
 
-const SESSION_KEY_PREFIX = 'fishy-session-';
+const SESSION_KEY_PREFIX = 'x706-session-';
 
 const SESSION_MESSAGE_CHANNEL_SUFFIX = '-chan';
 const SESSION_MESSAGE_INBOX_SUFFIX = '-inbox';

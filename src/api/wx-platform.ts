@@ -4,6 +4,9 @@ import { wxService } from '../services/wexin';
 // import { ApplicationError } from '../lib/errors';
 import { ContextLogger } from './middlewares/logger';
 import config from '../config';
+import { oneOffExchangeService } from '../services/one-off-exchange';
+import { ObjectId } from 'mongodb';
+import { fileMongoOperations, postMongoOperations } from '../db/index';
 
 const wxAppId = config.wechat.appId;
 
@@ -24,7 +27,7 @@ export async function wxPlatformLandingController(ctx: Context, next: () => Prom
     let parsed: { [k: string]: any } | undefined;
 
     if (ctx.request.type === 'application/xml' || ctx.request.type === 'text/xml') {
-        parsed = await wxService.parseEncryptedIncomingXmlString((ctx.rawBody) as string);
+        parsed = await wxService.parseEncryptedIncomingXmlString((ctx.request.rawBody) as string);
     }
 
     if (!parsed) {
@@ -60,3 +63,30 @@ export async function wxPlatformLandingController(ctx: Context, next: () => Prom
 
     return next();
 }
+
+
+wxService.on('wxaMediaChecked', async (message) => {
+    const traceId = message.trace_id;
+
+    if (!traceId) {
+        return;
+    }
+
+    const fileId = await oneOffExchangeService.retrieve(traceId, true);
+
+    if (!ObjectId.isValid(fileId)) {
+        return;
+    }
+
+    const fileObjId = new ObjectId(fileId);
+    if (message.isrisky === '1' || message.isrisky === 1) {
+        const fileRecord = await fileMongoOperations.findOneAndUpdate({ _id: fileObjId }, { $set: { blocked: true } });
+
+        if (fileRecord && fileRecord.ownerType === 'post' && fileRecord.owner) {
+            // const post = await postMongoOperations.findOne({ _id: fileRecord.owner });
+            await postMongoOperations.updateOne({ _id: fileRecord.owner }, { $set: { blocked: true } });
+        }
+
+    }
+
+});

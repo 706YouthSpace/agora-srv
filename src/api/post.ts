@@ -14,6 +14,8 @@ import { Post } from '../db/post';
 import { FileRecord } from '../db/file';
 import { urlSignatureManager } from '../services/url-signature';
 import { User } from '../db/user';
+import { wxService } from '../services/wexin';
+import { oneOffExchangeService } from '../services/one-off-exchange';
 
 const fileServerBaseUri = 'https://x706.access.naiver.org/file/';
 
@@ -82,11 +84,39 @@ export async function createNewPostController(
         draft.tags = _.compact(_.uniq(tags)).map((x) => x.substring(0, MAX_TAG_LENGTH));
     }
 
+    if (title || content) {
+        const accessToken = await wxService.localAccessToken;
+        try {
+            const secResult = await wxService.wxaMsgSecCheck(accessToken, `${title}\n\n${content}`);
+            if (secResult.errmsg !== 'ok') {
+                draft.blocked = true;
+            }
+        } catch (err) {
+            draft.blocked = true;
+        }
+    }
+
     const post = await postMongoOperations.newPost(draft);
+
 
     userMongoOperations.updateOne({ _id: user._id }, { $inc: { 'counter.posts': 1 } }).catch();
 
     ctx.returnData(post);
+
+
+    if (draft.images && draft.images.length) {
+        const accessToken = await wxService.localAccessToken;
+        draft.images.forEach(async (x) => {
+            const url = signDownloadUrl(x);
+            try {
+                const r = await wxService.wxaMediaCheckAsync(accessToken, url);
+                if (r.trace_id) {
+                    await oneOffExchangeService.depositWithHandle(r.trace_id, x.toHexString(), 40 * 60 * 1000);
+                }
+            } catch (err) {
+            }
+        });
+    }
 
     if (files.length) {
         await fileMongoOperations.updateMany(

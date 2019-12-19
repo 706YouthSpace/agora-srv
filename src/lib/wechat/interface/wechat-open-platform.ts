@@ -12,6 +12,11 @@ export interface WxoComponentAccessTokenReceipt {
     expires_in: number;
 }
 
+export interface WxoAccessTokenReceipt {
+    access_token: string;
+    expires_in: number;
+}
+
 export interface WxoPreAuthCodeReceipt {
     pre_auth_code: string;
     expires_in: number;

@@ -72,7 +72,7 @@ export abstract class SharedState<T = any> extends EventEmitter {
             });
         }
 
-        return this._value;
+        return this._value as T;
     }
 }
 
@@ -135,7 +135,7 @@ export class SharedStateManager extends EventEmitter {
     // }
 
     protected _getProfile(key: string) {
-        let profile = this.trackedProfiles.get(key)!;
+        let profile = this.trackedProfiles.get(key);
         if (!profile) {
             profile = {
             } as any;
@@ -146,7 +146,7 @@ export class SharedStateManager extends EventEmitter {
             this.trackedProfiles.set(key, profile!);
         }
 
-        return profile;
+        return profile as TrackingProfile;
     }
 
     protected discard(key: string) {
@@ -297,7 +297,7 @@ export class SharedStateManager extends EventEmitter {
         });
 
         await this.mainRedisClient.multi()
-            .setex(this._dataKeyOf(key), ttlToBeSet, stringValue)
+            .psetex(this._dataKeyOf(key), ttlToBeSet, stringValue)
             .publish(this._channelKeyOf(key), stringValue)
             .exec();
 
@@ -317,10 +317,7 @@ export class SharedStateManager extends EventEmitter {
         const originalNext = state.next;
 
         profile.redlock = new Redlock([this.mainRedisClient], {
-            driftFactor: 5,
-            retryCount: 0,
-            retryDelay: 0,
-            retryJitter: 0,
+            retryCount: 1
         });
 
         // tslint:disable-next-line: no-this-assignment
@@ -336,7 +333,6 @@ export class SharedStateManager extends EventEmitter {
                 } catch (err) {
                     await delay(Math.floor(padding / 10));
                 }
-
                 if (!manager.trackedProfiles.has(key)) {
                     return;
                 }
@@ -384,6 +380,7 @@ export class SharedStateManager extends EventEmitter {
 
         profile.instance = state;
 
+        this._fetchCurrentState(key);
 
         return profile.instance;
     }
