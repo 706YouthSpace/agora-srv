@@ -16,6 +16,12 @@ export class TemporaryFileManger {
                     throw new Error('TmpFile targert dir was not a dir: ' + rootDir);
                 }
             } catch (err) {
+                if (err.code === 'ENOENT') {
+                    fs.mkdirSync(rootDir);
+                    this.rootDir = rootDir;
+                    
+                    return;
+                }
                 throw new Error('Error stating tmpfile target dir: ' + rootDir);
             }
             this.rootDir = rootDir;
