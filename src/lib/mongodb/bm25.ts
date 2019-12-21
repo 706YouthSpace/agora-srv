@@ -289,13 +289,13 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
 
 export abstract class JiebaBm25EnabledCollection<T> extends BM25EnabledCollection<T> {
     async queryAnalyze(queryString: string) {
-        const result = jiebaService.analyze(queryString);
+        const result = jiebaService.analyze(queryString.toLowerCase());
 
         return Promise.resolve(Object.keys(result));
     }
 
     async indexAnalyze(content: string) {
-        const result = jiebaService.analyzeForIndex(content);
+        const result = jiebaService.analyzeForIndex(content.toLowerCase());
 
         return Promise.resolve(result);
     }
