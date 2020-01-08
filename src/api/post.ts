@@ -134,6 +134,7 @@ export async function createNewPostController(
     return next();
 }
 
+// tslint:disable-next-line: cyclomatic-complexity
 export async function commentOnPostController(
     ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator & CrappyKoaRouterThatNeedsReplacement,
     next: () => Promise<unknown>
@@ -211,6 +212,18 @@ export async function commentOnPostController(
     );
 
     draft.replyIndex = _.get(updatedPost, 'counter.comments');
+
+    if (title || content) {
+        const accessToken = await wxService.localAccessToken;
+        try {
+            const secResult = await wxService.wxaMsgSecCheck(accessToken, `${title}\n\n${content}`);
+            if (secResult.errmsg !== 'ok') {
+                draft.blocked = true;
+            }
+        } catch (err) {
+            draft.blocked = true;
+        }
+    }
 
     const post = await postMongoOperations.newPost(draft);
 
@@ -730,6 +743,41 @@ export async function wxaSearchPostsController(
     }
 
     ctx.returnData(final);
+
+    return next();
+}
+
+export async function blockPostController(
+    ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator & CrappyKoaRouterThatNeedsReplacement,
+    next: () => Promise<unknown>
+) {
+    const setToVal = Boolean(_.get(ctx, 'request.body.blocked') || _.get(ctx, 'request.body.value') || true);
+
+    const currentUser = await ctx.wxaFacl.assertLoggedIn();
+
+    const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+
+    if (!user) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40401);
+    }
+
+    const targetId = _.get(ctx, 'request.body.postId') || _.get(ctx, 'request.query.postId') || _.get(ctx, 'params.postId');
+
+    await ctx.validator.assertValid('postId', targetId, 'ObjectId');
+
+    const postId = new ObjectId(targetId);
+
+    const targePost = await postMongoOperations.findOne({ _id: postId }, { projection: { _terms: false } });
+
+    if (!targePost) {
+        // tslint:disable-next-line: no-magic-numbers
+        throw new ApplicationError(40402);
+    }
+
+    await postMongoOperations.updateOne({ _id: targePost._id }, { $set: { blocked: setToVal } });
+
+    ctx.returnData(setToVal);
 
     return next();
 }

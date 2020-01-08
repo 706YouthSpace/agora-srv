@@ -31,7 +31,11 @@ export async function wxaLoginController(ctx: Context & ContextRESTUtils & Parse
 
     await ctx.wxaFacl.login(wxService.config.appId, user.openid, localUser._id.toHexString(), user.session_key);
 
-    ctx.returnData(localUser);
+    const userToReturn = userMongoOperations.makeBrefUser(localUser, 'private');
+
+    userToReturn.activated = true;
+
+    ctx.returnData(userToReturn);
 
     return next();
 }

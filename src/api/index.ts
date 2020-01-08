@@ -23,7 +23,7 @@ import { multiParse } from './middlewares/body-parser';
 import { uploadFileToPersonalDrive, getFileController, getFileWithImageThumbnailController } from './file';
 import {
     createNewPostController, commentOnPostController, getPostsController, getPostController,
-    getCommentsController, likePostController, wxaSearchPostsController
+    getCommentsController, likePostController, wxaSearchPostsController, blockPostController
 } from './post';
 import { autoSessionMiddleware } from './middlewares/session';
 import { injectSessionWxaFacilityMiddleware } from './middlewares/session-wxa';
@@ -93,6 +93,8 @@ router.post('/post/:postId', commentOnPostController);
 
 router.post('/post/:postId/liked', likePostController);
 router.delete('/post/:postId/liked', likePostController);
+
+router.post('/post/:postId/blocked', blockPostController);
 
 router.get('/posts', getPostsController);
 router.get('/posts/search', wxaSearchPostsController);
