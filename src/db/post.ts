@@ -140,4 +140,107 @@ export class PostMongoOperations extends JiebaBm25EnabledCollection<Post> {
         return this.updateOne({ _id }, { $inc: { [`counter.${name}`]: amount } });
     }
 
+    async dedup(draft: Partial<Post>) {
+        if (!draft.author) {
+            return false;
+        }
+
+        // tslint:disable-next-line: no-magic-numbers
+        const deadline = (Date.now() - (12 * 3600 * 1000));
+
+        if (draft.content) {
+            const q1: any = { author: draft.author, content: draft.content };
+            if (draft.inReplyToPost) {
+                q1.inReplyToPost = { $type: 'objectId' };
+            }
+            const dupResult = await this.findOne(q1, { sort: { createdAt: -1 } });
+            if (dupResult && dupResult.createdAt >= deadline) {
+                // tslint:disable-next-line: no-magic-numbers
+                throw new ApplicationError(40008);
+            }
+        }
+
+        if (draft.images && draft.images.length) {
+
+            const dupResults = await this.simpleAggregate([
+                {
+                    $match: {
+                        author: draft.author,
+                        createdAt: { $gte: deadline },
+                        content: draft.content || '',
+                        inReplyToPost: draft.inReplyToPost ? { $type: 'objectId' } : { $exists: false },
+                        images: { $type: 'array' }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'files',
+                        pipeline: [
+                            {
+                                $match: {
+                                    _id: { $in: draft.images }
+                                }
+                            },
+
+                            {
+                                $project: { sha256SumHex: 1, _id: 0 }
+                            },
+                        ],
+                        as: 'proposedFiles'
+                    }
+                },
+
+                { $addFields: { proposedFiles: { $map: { input: '$proposedFiles', as: 'file', in: '$$file.sha256SumHex' } } } },
+
+                {
+                    $lookup: {
+                        from: 'files',
+                        let: {
+                            files: "$images",
+                            proposed: "$proposedFiles"
+                        },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $and: [
+                                            {
+                                                $in: ['$_id', '$$files']
+                                            },
+                                            {
+                                                $in: ['$sha256SumHex', '$$proposed']
+                                            }
+                                        ]
+                                    }
+                                }
+                            },
+                            {
+                                $project: { sha256SumHex: 1, _id: 0 }
+                            }
+                        ],
+                        as: 'files'
+                    }
+                },
+                {
+                    $addFields: { files: { $map: { input: "$files", as: "file", in: '$$file.sha256SumHex' } } }
+                },
+                {
+                    $match: {
+                        'files.0': { $exists: true }
+                    }
+                },
+                {
+                    $sort: { createdAt: -1 }
+                },
+            ]);
+
+            if (dupResults && dupResults.length) {
+                // tslint:disable-next-line: no-magic-numbers
+                throw new ApplicationError(40008);
+            }
+        }
+
+        return true;
+    }
+
 }

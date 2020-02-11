@@ -58,7 +58,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
 
         // const result = await this.countDocuments({ _terms: { $exists: true } });
 
-        const cursor = await this.aggregate([
+        const result = await this.simpleAggregate([
             { $match: { _terms: { $exists: true } } },
             {
                 $group: {
@@ -77,8 +77,6 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
                 }
             }
         ]);
-
-        const result = await cursor.toArray();
 
         if (result && result[0]) {
             const avgdl = (result[0] as any).avgdl;
@@ -157,7 +155,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
         const b = 0.75;
         const theta = 1;
         const avgdl = this.avgdl;
-        const cursor = await this.aggregate<{ _id: ObjectId; score: number }>(
+        const result = await this.simpleAggregate<{ _id: ObjectId; score: number }>(
             [
                 {
                     $match: {
@@ -282,7 +280,7 @@ export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFID
             }
         );
 
-        return cursor.toArray();
+        return result;
     }
 
 }

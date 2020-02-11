@@ -251,16 +251,22 @@ export class MongoCollection<TSchema = any> {
         return doc;
     }
 
-    async simpleFind(query: FilterQuery<TSchema>, options?: FindOneOptions) {
+    async simpleFind(query: FilterQuery<OptionalId<TSchema>>, options?: FindOneOptions) {
         const cursor = await this.find(query, options);
 
         return cursor.toArray();
     }
 
-    async steamFind(query: FilterQuery<TSchema>, options?: FindOneOptions) {
+    async steamFind(query: FilterQuery<OptionalId<TSchema>>, options?: FindOneOptions) {
         const cursor = await this.find(query, options);
 
         return cursor.stream();
+    }
+
+    async simpleAggregate<T = Partial<OptionalId<TSchema>>>(pipeline: object[], options?: CollectionAggregationOptions) {
+        const cursor = await this.aggregate<T>(pipeline, options);
+
+        return cursor.toArray();
     }
 
 }

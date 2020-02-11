@@ -45,6 +45,10 @@ export async function createNewPostController(
         throw new ApplicationError(40401);
     }
 
+    if (!user.activated) {
+        throw new ApplicationError(40303, 'User not activated');
+    }
+
     const title = _.get(ctx, 'request.body.title');
     const content = _.get(ctx, 'request.body.content') || title || '';
 
@@ -95,6 +99,8 @@ export async function createNewPostController(
             draft.blocked = true;
         }
     }
+
+    await postMongoOperations.dedup(draft);
 
     const post = await postMongoOperations.newPost(draft);
 
@@ -147,6 +153,10 @@ export async function commentOnPostController(
     if (!user) {
         // tslint:disable-next-line: no-magic-numbers
         throw new ApplicationError(40401);
+    }
+
+    if (!user.activated) {
+        throw new ApplicationError(40303, 'User not activated');
     }
 
     const commentOnId = _.get(ctx, 'request.body.postId') || _.get(ctx, 'request.query.postId') || _.get(ctx, 'params.postId');
@@ -205,14 +215,6 @@ export async function commentOnPostController(
         }
     }
 
-    const updatedPost = await postMongoOperations.findOneAndUpdate(
-        { _id: targePost._id },
-        { $inc: { 'counter.comments': 1 } },
-        { returnOriginal: false }
-    );
-
-    draft.replyIndex = _.get(updatedPost, 'counter.comments');
-
     if (title || content) {
         const accessToken = await wxService.localAccessToken;
         try {
@@ -224,6 +226,16 @@ export async function commentOnPostController(
             draft.blocked = true;
         }
     }
+
+    await postMongoOperations.dedup(draft);
+
+    const updatedPost = await postMongoOperations.findOneAndUpdate(
+        { _id: targePost._id },
+        { $inc: { 'counter.comments': 1 } },
+        { returnOriginal: false }
+    );
+
+    draft.replyIndex = _.get(updatedPost, 'counter.comments');
 
     const post = await postMongoOperations.newPost(draft);
 
@@ -294,6 +306,7 @@ async function fillPersonalActionsForPosts(user: User, posts: Post[]) {
     return posts;
 }
 
+// tslint:disable-next-line: cyclomatic-complexity
 export async function getPostsController(
     ctx: Context & ContextRESTUtils & ParsedContext & SessionWxaFacility & ContextValidator & CrappyKoaRouterThatNeedsReplacement,
     next: () => Promise<unknown>
@@ -307,7 +320,18 @@ export async function getPostsController(
     const uid = _.get(ctx, 'params.uid') || _.get(ctx, 'query.uid');
     const tag = _.get(ctx, 'query.tag');
 
+    const currentUser = await ctx.wxaFacl.isLoggedIn();
+    let user: User | null = null;
+    if (currentUser) {
+        user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+    }
+
     const query: any = { blocked: { $ne: true }, inReplyToPost: { $exists: false } };
+
+    if (user && user.privileged) {
+        delete query.blocked;
+    }
+
     let sort: any = { updatedAt: -1 };
     let posts;
     if (anchor) {
@@ -323,7 +347,7 @@ export async function getPostsController(
 
         if (byComment) {
             query.inReplyToPost = { $exists: true };
-            const commentedPosts = await (await postMongoOperations.aggregate<{ _id: ObjectId; commentedAt: number }>([
+            const commentedPosts = await postMongoOperations.simpleAggregate<{ _id: ObjectId; commentedAt: number }>([
                 {
                     $match: query
                 },
@@ -339,18 +363,20 @@ export async function getPostsController(
                 {
                     $limit: limit
                 }
-            ])).toArray();
+            ]);
 
             const postIds = commentedPosts.map((x) => x._id);
 
             const postsDraft = await postMongoOperations.simpleFind(
-                { _id: { $in: postIds }, blocked: { $ne: true }, inReplyToPost: { $exists: false } }
+                query.blocked ?
+                    { _id: { $in: postIds }, blocked: query.blocked, inReplyToPost: { $exists: false } } :
+                    { _id: { $in: postIds }, inReplyToPost: { $exists: false } }
             );
             const postIndex = _.keyBy(postsDraft, (x) => x._id.toHexString());
 
             posts = [];
             for (const x of commentedPosts) {
-                const post = postIndex[x._id.toHexString()];
+                const post = postIndex[x._id!.toHexString()];
                 if (!post) {
                     continue;
                 }
@@ -370,7 +396,9 @@ export async function getPostsController(
             const postIds = postViews.map((x) => x.to);
 
             const postsDraft = await postMongoOperations.simpleFind(
-                { _id: { $in: postIds }, blocked: { $ne: true }, inReplyToPost: { $exists: false } }
+                query.blocked ?
+                    { _id: { $in: postIds }, blocked: query.blocked, inReplyToPost: { $exists: false } } :
+                    { _id: { $in: postIds }, inReplyToPost: { $exists: false } }
             );
 
             const postIndex = _.keyBy(postsDraft, (x) => x._id.toHexString());
@@ -403,10 +431,8 @@ export async function getPostsController(
         posts = await postMongoOperations.simpleFind(query, { limit, sort });
     }
 
-    const currentUser = await ctx.wxaFacl.isLoggedIn();
-    if (currentUser && !byLikes) {
-        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
 
+    if (currentUser && !byLikes) {
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);
@@ -428,6 +454,10 @@ export async function getPostController(
 
     const currentUser = await ctx.wxaFacl.isLoggedIn();
 
+    let user: User | null = null;
+    if (currentUser) {
+        user = await userMongoOperations.getSingleUserById(currentUser.cuid);
+    }
 
     const postId = _.get(ctx, 'query.postId') || _.get(ctx, 'params.postId');
 
@@ -444,6 +474,10 @@ export async function getPostController(
     }
 
     const query: any = { inReplyToPost: new ObjectId(postId), blocked: { $ne: true } };
+
+    if (user && user.privileged) {
+        delete query.blocked;
+    }
 
     const comments = await postMongoOperations.simpleFind(query, { sort: { createdAt: 1 } });
     const authorIds = new Set<string>();
@@ -479,8 +513,6 @@ export async function getPostController(
     patchedPost.comments = patchedComments;
 
     if (currentUser) {
-        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
-
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);
@@ -512,15 +544,15 @@ export async function getCommentsController(
 ) {
 
     const currentUser = await ctx.wxaFacl.isLoggedIn();
+    let user: User | null = null;
+    if (currentUser) {
+        user = await userMongoOperations.getSingleUserById(currentUser.cuid);
 
-    // if (currentUser) {
-    //     const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
-
-    //     if (!user) {
-    //         // tslint:disable-next-line: no-magic-numbers
-    //         throw new ApplicationError(40401);
-    //     }
-    // }
+        if (!user) {
+            // tslint:disable-next-line: no-magic-numbers
+            throw new ApplicationError(40401);
+        }
+    }
 
     const postId = _.get(ctx, 'query.postId') || _.get(ctx, 'params.postId');
 
@@ -528,6 +560,10 @@ export async function getCommentsController(
 
     const mode = _.get(ctx, 'query.mode') || 'all';
     const query: any = { inReplyToPost: new ObjectId(postId), blocked: { $ne: true } };
+
+    if (user && user.privileged) {
+        delete query.blocked;
+    }
 
     switch (mode) {
         case 'ref': {
@@ -737,7 +773,7 @@ export async function wxaSearchPostsController(
     const final = [];
 
     for (const x of searchResults) {
-        const post: any = postIndex[x._id.toHexString()];
+        const post: any = postIndex[x._id!.toHexString()];
         post.score = x.score;
         final.push(post);
     }

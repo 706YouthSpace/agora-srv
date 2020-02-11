@@ -66,3 +66,10 @@ function _vectorize(obj: object, stack: string[] = []) {
 export function vectorize(obj: object) {
     return _.fromPairs(_vectorize(obj));
 }
+
+
+export function xor(a: any, b: any) {
+
+    // tslint:disable-next-line: no-bitwise
+    return Boolean((!a) as any ^ (!b) as any);
+}
