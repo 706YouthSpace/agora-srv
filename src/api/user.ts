@@ -292,10 +292,10 @@ export async function wxaSetUserActivationController(
         throw new ApplicationError(40401);
     }
 
-    if (!user.privileged) {
-        // tslint:disable-next-line: no-magic-numbers
-        throw new ApplicationError(40303);
-    }
+    // if (!user.privileged) {
+    //     // tslint:disable-next-line: no-magic-numbers
+    //     throw new ApplicationError(40303);
+    // }
 
     const queryId = ctx.query.uid || _.get(ctx, 'request.body.uid') || _.get(ctx, 'params.uid');
 
