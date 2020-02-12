@@ -608,8 +608,6 @@ export async function getCommentsController(
     const authors = (await userMongoOperations.getUsersById(Array.from(authorIds))).map((x) => userMongoOperations.makeBrefUser(x));
 
     if (currentUser) {
-        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
-
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);
