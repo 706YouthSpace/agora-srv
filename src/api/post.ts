@@ -469,7 +469,7 @@ export async function getPostController(
         throw new ApplicationError(40402);
     }
 
-    if (post.blocked) {
+    if (post.blocked && !(user && user.privileged)) {
         throw new ApplicationError(45101);
     }
 

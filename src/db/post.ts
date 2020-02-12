@@ -161,7 +161,6 @@ export class PostMongoOperations extends JiebaBm25EnabledCollection<Post> {
         }
 
         if (draft.images && draft.images.length) {
-
             const dupResults = await this.simpleAggregate([
                 {
                     $match: {
@@ -226,7 +225,7 @@ export class PostMongoOperations extends JiebaBm25EnabledCollection<Post> {
                 },
                 {
                     $match: {
-                        'files.0': { $exists: true }
+                        files: { $exists: true }
                     }
                 },
                 {

@@ -297,7 +297,15 @@ export async function wxaSetUserActivationController(
 
     await ctx.validator.assertValid('uid', queryId, 'ObjectId');
 
-    const setToVal = Boolean(_.get(ctx, 'request.body.activated') || _.get(ctx, 'request.body.value') || true);
+    let setToVal = true;
+
+    if (_.get(ctx, 'request.body.value') !== undefined) {
+        setToVal = Boolean(_.get(ctx, 'request.body.value'));
+    }
+
+    if (_.get(ctx, 'request.body.activated') !== undefined) {
+        setToVal = Boolean(_.get(ctx, 'request.body.activated'));
+    }
 
     await userMongoOperations.updateOne({ _id: new ObjectId(queryId), wxaId: wxAppId }, { $set: { activated: setToVal } });
 
