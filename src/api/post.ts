@@ -321,14 +321,10 @@ export async function getPostsController(
     const tag = _.get(ctx, 'query.tag');
 
     const currentUser = await ctx.wxaFacl.isLoggedIn();
-    let user: User | null = null;
-    if (currentUser) {
-        user = await userMongoOperations.getSingleUserById(currentUser.cuid);
-    }
 
     const query: any = { blocked: { $ne: true }, inReplyToPost: { $exists: false } };
 
-    if (user && user.privileged) {
+    if (currentUser && currentUser.privileged) {
         delete query.blocked;
     }
 
@@ -433,6 +429,7 @@ export async function getPostsController(
 
 
     if (currentUser && !byLikes) {
+        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);
@@ -454,11 +451,6 @@ export async function getPostController(
 
     const currentUser = await ctx.wxaFacl.isLoggedIn();
 
-    let user: User | null = null;
-    if (currentUser) {
-        user = await userMongoOperations.getSingleUserById(currentUser.cuid);
-    }
-
     const postId = _.get(ctx, 'query.postId') || _.get(ctx, 'params.postId');
 
     await ctx.validator.assertValid('postId', postId, 'ObjectId');
@@ -469,13 +461,13 @@ export async function getPostController(
         throw new ApplicationError(40402);
     }
 
-    if (post.blocked && !(user && user.privileged)) {
+    if (post.blocked && !(currentUser && currentUser.privileged)) {
         throw new ApplicationError(45101);
     }
 
     const query: any = { inReplyToPost: new ObjectId(postId), blocked: { $ne: true } };
 
-    if (user && user.privileged) {
+    if (currentUser && currentUser.privileged) {
         delete query.blocked;
     }
 
@@ -513,6 +505,7 @@ export async function getPostController(
     patchedPost.comments = patchedComments;
 
     if (currentUser) {
+        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);
@@ -544,15 +537,6 @@ export async function getCommentsController(
 ) {
 
     const currentUser = await ctx.wxaFacl.isLoggedIn();
-    let user: User | null = null;
-    if (currentUser) {
-        user = await userMongoOperations.getSingleUserById(currentUser.cuid);
-
-        if (!user) {
-            // tslint:disable-next-line: no-magic-numbers
-            throw new ApplicationError(40401);
-        }
-    }
 
     const postId = _.get(ctx, 'query.postId') || _.get(ctx, 'params.postId');
 
@@ -561,7 +545,7 @@ export async function getCommentsController(
     const mode = _.get(ctx, 'query.mode') || 'all';
     const query: any = { inReplyToPost: new ObjectId(postId), blocked: { $ne: true } };
 
-    if (user && user.privileged) {
+    if (currentUser && currentUser.privileged) {
         delete query.blocked;
     }
 
@@ -608,6 +592,7 @@ export async function getCommentsController(
     const authors = (await userMongoOperations.getUsersById(Array.from(authorIds))).map((x) => userMongoOperations.makeBrefUser(x));
 
     if (currentUser) {
+        const user = await userMongoOperations.getSingleUserById(currentUser.cuid);
         if (!user) {
             // tslint:disable-next-line: no-magic-numbers
             throw new ApplicationError(40401);

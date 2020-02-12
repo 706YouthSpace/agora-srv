@@ -29,7 +29,7 @@ export async function wxaLoginController(ctx: Context & ContextRESTUtils & Parse
         throw new ApplicationError(40401);
     }
 
-    await ctx.wxaFacl.login(wxService.config.appId, user.openid, localUser._id.toHexString(), user.session_key);
+    await ctx.wxaFacl.login(wxService.config.appId, user.openid, localUser._id.toHexString(), user.session_key, localUser.privileged);
 
     const userToReturn = userMongoOperations.makeBrefUser(localUser, 'private');
 
@@ -139,12 +139,16 @@ export async function wxaUserBazaarController(
     next: () => Promise<unknown>
 ) {
 
-    // const currentUser = await ctx.wxaFacl.isLoggedIn();
+    const currentUser = await ctx.wxaFacl.isLoggedIn();
 
     const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const anchor = ctx.query.anchor;
 
-    const query: any = { profile: { $exists: true } };
+    const query: any = { profile: { $exists: true }, activated: true };
+
+    if (currentUser && currentUser.privileged) {
+        delete query.activated;
+    }
 
     if (ObjectId.isValid(anchor)) {
         _.set(query, '_id.$lt', new ObjectId(anchor));
