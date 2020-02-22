@@ -33,8 +33,6 @@ export async function wxaLoginController(ctx: Context & ContextRESTUtils & Parse
 
     const userToReturn = userMongoOperations.makeBrefUser(localUser, 'private');
 
-    userToReturn.activated = true;
-
     ctx.returnData(userToReturn);
 
     return next();
