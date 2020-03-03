@@ -8,7 +8,7 @@ import { wxPlatformLandingController } from './wx-platform';
 
 import {
     wxaLoginController, wxaGetMyProfileController, wxaGetOtherUserProfileController,
-    wxaUserBazaarController, wxaSetMyProfileController, wxaSetMyProfilePrivaicyController,
+    wxaUserAgoraController, wxaSetMyProfileController, wxaSetMyProfilePrivaicyController,
     wxaSetPrivilegedUserController, wxaSetUserActivationController, wxaFriendingController,
     wxaGetFriendsController,
     wxaSearchUsersController
@@ -76,7 +76,7 @@ router.patch('/my/friends', wxaFriendingController);
 router.post('/my/files', uploadFileToPersonalDrive);
 
 
-router.get('/users', wxaUserBazaarController);
+router.get('/users', wxaUserAgoraController);
 router.get('/users/search', wxaSearchUsersController);
 router.post('/su', wxaSetPrivilegedUserController);
 
