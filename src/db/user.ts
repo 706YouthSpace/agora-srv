@@ -354,6 +354,11 @@ export class UserMongoOperations extends JiebaBm25EnabledCollection<User> {
             delete brefUser.preferences;
         }
 
+        // TODO: remove this data fix after frontend tpl fix.
+        if (resultProfile.organization === undefined) {
+            resultProfile.organization = '';
+        }
+
         delete brefUser._terms;
 
         return brefUser;

@@ -142,7 +142,16 @@ export async function wxaUserBazaarController(
     const limit = Math.min(Math.abs(parseInt(ctx.query.limit)) || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
     const anchor = ctx.query.anchor;
 
-    const query: any = { profile: { $exists: true }, activated: true };
+    const query: any = {
+        $or: [
+            { 'profile.organization': { $type: 'string' } },
+            { 'profile.position': { $type: 'string' } },
+            { 'profile.school': { $type: 'string' } },
+            { 'profile.researchField': { $type: 'string' } }
+        ],
+
+        activated: true
+    };
 
     if (currentUser && currentUser.privileged) {
         delete query.activated;
