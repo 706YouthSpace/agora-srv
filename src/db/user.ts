@@ -18,7 +18,7 @@ export interface User {
     profile?: {
         nickName: string;
         realName?: string;
-        gender?: 'male' | 'female';
+        gender?: 'male' | 'female' | 'diversity';
         avatarUrl?: string;
         province?: string;
         country?: string;
