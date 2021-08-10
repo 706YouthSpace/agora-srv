@@ -1,12 +1,13 @@
 
 
-import { MongoClient, MongoClientOptions } from 'mongodb';
+import { MongoClient, MongoClientOptions, Db } from 'mongodb';
 import { AsyncService } from 'tskit';
 
 
 
 export class MongoDB extends AsyncService {
     client: MongoClient;
+    db!: Db;
 
     constructor(public url: string, public options?: MongoClientOptions) {
         super();
@@ -27,9 +28,12 @@ export class MongoDB extends AsyncService {
     async init() {
         try {
             await this.client.connect();
-            this.emit('ready', this.client);
+            this.db = this.client.db();
+            setImmediate(() => {
+                this.emit('ready', this.client)
+            });
 
-            return this.client
+            return this.client;
         } catch (err) {
             this.emit('error', err);
 
@@ -37,8 +41,4 @@ export class MongoDB extends AsyncService {
         }
     }
 
-
-
-
-    
 }

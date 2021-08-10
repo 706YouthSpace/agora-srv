@@ -1,6 +1,6 @@
-import { MongoDB } from './client';
+import { MongoCollection } from './client';
 import _ from 'lodash';
-import { Filter, ObjectId } from 'mongodb';
+import { ObjectId, FilterQuery } from 'mongodb';
 import { jiebaService } from '../../services/nlp';
 
 export interface TFIDFFacl {
@@ -11,15 +11,15 @@ export interface TFIDFFacl {
     }>;
 }
 
-export abstract class BM25EnabledMongoDB extends MongoDB {
+export abstract class BM25EnabledCollection<T> extends MongoCollection<(T & TFIDFFacl)> {
 
     totalCount?: number;
     avgdl?: number;
 
-    abstract termAnalyze<T extends object>(record: Partial<T>): Promise<{ [term: string]: number }>;
+    abstract termAnalyze(record: Partial<T>): Promise<{ [term: string]: number }>;
     abstract queryAnalyze(queryString: string): Promise<string[]>;
 
-    async tfFill<T extends object>(record: Partial<T> & Partial<TFIDFFacl>) {
+    async tfFill(record: Partial<T> & Partial<TFIDFFacl>) {
         const termObj = await this.termAnalyze(record);
 
         if (!Array.isArray(record._terms)) {
@@ -41,11 +41,15 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
         return record;
     }
 
-    async _queryTotalCount<T extends object = any>(collection: string, query?: Filter<T>) {
+    async _queryTotalCount() {
 
         // const result = await this.countDocuments({ _terms: { $exists: true } });
 
-        const result = await (query ? this.db.collection(collection).countDocuments(query as any) : this.db.collection(collection).estimatedDocumentCount());
+        const result = await this.estimatedDocumentCount();
+
+        if (result) {
+            this.totalCount = result;
+        }
 
         return result;
     }
