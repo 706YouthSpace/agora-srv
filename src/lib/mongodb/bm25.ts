@@ -1,7 +1,7 @@
-import { MongoDB } from './client';
 import _ from 'lodash';
-import { Filter, ObjectId } from 'mongodb';
+import { Collection, Filter, ObjectId } from 'mongodb';
 import { jiebaService } from '../../services/nlp';
+import { MongoHandle } from './collection';
 
 export interface TFIDFFacl {
     _id: ObjectId;
@@ -11,15 +11,21 @@ export interface TFIDFFacl {
     }>;
 }
 
-export abstract class BM25EnabledMongoDB extends MongoDB {
+export interface TextAnalyzable<T extends object> {
+    termAnalyze(record: Partial<T>): Promise<{ [term: string]: number }>;
+    queryAnalyze(queryString: string): Promise<string[]>;
+}
+export abstract class MongoBM25Handle<T extends object> extends MongoHandle<T & TFIDFFacl> {
 
     totalCount?: number;
     avgdl?: number;
 
-    abstract termAnalyze<T extends object>(record: Partial<T>): Promise<{ [term: string]: number }>;
+    abstract collection: Collection<T & TFIDFFacl>;
+
+    abstract termAnalyze(record: Partial<T>): Promise<{ [term: string]: number }>;
     abstract queryAnalyze(queryString: string): Promise<string[]>;
 
-    async tfFill<T extends object>(record: Partial<T> & Partial<TFIDFFacl>) {
+    async tfFill(record: Partial<T> & Partial<TFIDFFacl>) {
         const termObj = await this.termAnalyze(record);
 
         if (!Array.isArray(record._terms)) {
@@ -41,11 +47,11 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
         return record;
     }
 
-    async _queryTotalCount<T extends object = any>(collection: string, query?: Filter<T>) {
+    async _queryTotalCount(query?: Filter<T>) {
 
         // const result = await this.countDocuments({ _terms: { $exists: true } });
 
-        const result = await (query ? this.db.collection(collection).countDocuments(query as any) : this.db.collection(collection).estimatedDocumentCount());
+        const result = await (query ? this.collection.countDocuments(query as any) : this.collection.estimatedDocumentCount());
 
         return result;
     }
@@ -54,7 +60,7 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
 
         // const result = await this.countDocuments({ _terms: { $exists: true } });
 
-        const result = await this.simpleAggregate([
+        const result = await this.collection.aggregate([
             { $match: { _terms: { $exists: true } } },
             {
                 $group: {
@@ -72,7 +78,7 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
                     }
                 }
             }
-        ]);
+        ]).toArray();
 
         if (result && result[0]) {
             const avgdl = (result[0] as any).avgdl;
@@ -97,15 +103,15 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
             terms.push(newRecord);
         }
 
-        return this.updateOne({ _id: record._id as any }, {
+        return this.collection.updateOne({ _id: record._id as any } as T & TFIDFFacl, {
             $set: {
                 _terms: terms
-            }
+            } as T & TFIDFFacl
         });
     }
 
     async tfReIndex(id: ObjectId) {
-        const record = await this.findOne({ _id: id as any });
+        const record: T & TFIDFFacl | undefined = await this.collection.findOne({ _id: id as any }) as T & TFIDFFacl;
         if (!record) {
             return null;
         }
@@ -113,7 +119,7 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
         return this.tfIndex(record);
     }
 
-    async bm25Aggregate(queryString: string, additionalQuery?: FilterQuery<T>, limit = 1000, skip = 0) {
+    async bm25Aggregate(queryString: string, additionalQuery?: Filter<T>, limit = 1000, skip = 0) {
 
         const queryTerms = await this.queryAnalyze(queryString);
 
@@ -138,7 +144,7 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
         const docCount = this.totalCount;
 
         const idfs = queryTerms.map(async (x: string) => {
-            const n = await this.countDocuments({ '_terms.t': x } as any);
+            const n = await this.collection.countDocuments({ '_terms.t': x } as object);
 
             // tslint:disable-next-line: no-magic-numbers
             return Math.log10((docCount - n + 0.5) / (n + 0.5));
@@ -151,7 +157,7 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
         const b = 0.75;
         const theta = 1;
         const avgdl = this.avgdl;
-        const result = await this.simpleAggregate<{ _id: ObjectId; score: number }>(
+        const result = await this.collection.aggregate<{ _id: ObjectId; score: number }>(
             [
                 {
                     $match: {
@@ -274,14 +280,13 @@ export abstract class BM25EnabledMongoDB extends MongoDB {
             {
                 allowDiskUse: true
             }
-        );
+        ).toArray();
 
         return result;
     }
-
 }
 
-export abstract class JiebaBm25EnabledCollection<T> extends BM25EnabledCollection<T> {
+export abstract class MongoJiebaBM25Toolkit<T extends object> extends MongoBM25Handle<T> {
     async queryAnalyze(queryString: string) {
         const result = jiebaService.analyze(queryString.toLowerCase());
 
