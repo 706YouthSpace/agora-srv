@@ -1,7 +1,24 @@
-import { MongodbClient } from '../../lib/mongodb';
-import config from '../../config';
+import { AbstractMongoDB } from '../../lib/mongodb';
+import { Config } from '../../config';
+
+import { singleton, container } from 'tsyringe';
+import { MongoClientOptions } from 'mongodb';
 
 
-export const mongoClient = new MongodbClient(config.mongoUrl);
-export const x706Database = mongoClient.database(config.mongoDatabase);
+@singleton()
+export class MongoDB extends AbstractMongoDB {
+    options?: MongoClientOptions;
+    url: string;
 
+    constructor(config: Config) {
+        super(...arguments);
+        this.options = config.mongoOptions;
+        this.url = config.mongoUrl;
+    }
+
+}
+
+
+export const mongoClient = container.resolve(MongoDB);
+
+export default mongoClient;

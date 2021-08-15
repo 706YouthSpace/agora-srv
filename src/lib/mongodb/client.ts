@@ -1,23 +1,17 @@
 
 
-import { Config } from 'config';
 import { MongoClient, MongoClientOptions, Db } from 'mongodb';
 import { AsyncService } from 'tskit';
 
-import { singleton } from 'tsyringe';
-@singleton()
-export class MongoDB extends AsyncService {
+export abstract class AbstractMongoDB extends AsyncService {
     client: MongoClient;
     db!: Db;
-    url: string;
-    options?: MongoClientOptions;
-    constructor(config: Config) {
-        super();
+    abstract url: string;
+    abstract options?: MongoClientOptions;
+    constructor(...whatever: any[]) {
+        super(...whatever);
 
-        this.url = config.mongoUrl;
-        this.options = config.mongoOptions;
-
-        this.client = new MongoClient(this.url, this.options);
+        this.client = this.createClient();
 
         this.client.on('error', (err) => {
             this.emit('error', err);
@@ -28,6 +22,10 @@ export class MongoDB extends AsyncService {
         });
 
         this.init();
+    }
+
+    createClient() {
+        return new MongoClient(this.url, this.options);
     }
 
     async init() {
