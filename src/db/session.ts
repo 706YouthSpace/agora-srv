@@ -18,13 +18,18 @@ export interface Session {
 
 @singleton()
 export class MongoSession extends MongoHandle<Session> {
-    collection: Collection<Session>;
+    collection!: Collection<Session>;
     typeclass: undefined;
 
     constructor(db: MongoDB) {
         super(db);
 
+    }
+
+    async init() {
+        await this.dependencyReady();
         this.collection = this.mongo.db.collection<Session>('sessions');
+        this.emit('ready');
     }
 
 

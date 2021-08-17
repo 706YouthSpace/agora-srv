@@ -18,15 +18,19 @@ export interface Site {
 
 @singleton()
 export class MongoSites extends MongoHandle<Site> {
-    collection: Collection<Site>;
+    collection!: Collection<Site>;
     typeclass: undefined;
 
     constructor(db: MongoDB) {
         super(db);
 
-        this.collection = this.mongo.db.collection<Site>('sites');
     }
 
+    async init() {
+        await this.dependencyReady();
+        this.collection = this.mongo.db.collection<Site>('sites');
+        this.emit('ready');
+    }
 
     async get(_id: ObjectId) {
         const r = this.collection.findOne({ _id });

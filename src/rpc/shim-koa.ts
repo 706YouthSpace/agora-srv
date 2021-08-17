@@ -3,6 +3,9 @@ import { Readable } from "stream";
 import { RPC_CALL_ENVIROMENT, ApplicationError, extractMeta } from "tskit";
 import { rPCRegistry } from "./civi-rpc";
 
+import stuff from './loader';
+
+stuff.sayhi();
 
 function makeSuccResponse(result: any) {
 
@@ -31,7 +34,7 @@ function makeErrResponse(error: Error) {
     return { code, error };
 }
 
-export async function controllerForKoa(ctx: Context, next: (err?: Error) => Promise<unknown>) {
+export async function shimControllerForKoa(ctx: Context, next: (err?: Error) => Promise<unknown>) {
     const jointInput = {
         ...ctx.params,
         ...ctx.query,
@@ -48,16 +51,9 @@ export async function controllerForKoa(ctx: Context, next: (err?: Error) => Prom
         methodId = ctx.request.URL.pathname.replace(/^\/api/i, '').split('/').filter(Boolean).join('.');
     }
 
-    const method = rPCRegistry.wrapped.get(methodId);
-
-    if (!method) {
-        return next();
-    }
-
-    const conf = rPCRegistry.conf.get(methodId)!;
 
     try {
-        const result = await method.call(conf.host, jointInput);
+        const result = await rPCRegistry.exec(methodId, jointInput);
 
         if (ctx.status === 404) {
             ctx.status = 200;

@@ -42,6 +42,7 @@
     "rxjs": "^6.5.2",
     "schema-dts": "^0.10.0",
     "svg-captcha": "^1.4.0",
+    "tiny-pinyin": "^1.3.2",
     "tskit": "git+https://706-cooperative:svze94c4ZXi3WV2zCULi@git.naiver.org:6443/naiverlabs/typescript-toolkit.git#master",
     "tsyringe": "^4.6.0",
     "uuid": "^3.3.2",

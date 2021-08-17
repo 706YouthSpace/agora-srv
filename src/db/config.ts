@@ -18,13 +18,17 @@ export interface Config {
 
 @singleton()
 export class MongoConfig extends MongoHandle<Config> {
-    collection: Collection<Config>;
+    collection!: Collection<Config>;
     typeclass: undefined;
 
     constructor(db: MongoDB) {
         super(db);
+    }
 
+    async init() {
+        await this.dependencyReady();
         this.collection = this.mongo.db.collection<Config>('configs');
+        this.emit('ready');
     }
 
 

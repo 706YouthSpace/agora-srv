@@ -27,13 +27,13 @@ export function TimedDefer<T = any>(timeout: number = 5000): Deferred<T> {
             self.reject(new TimeoutError(`Timed out after ${timeout}ms.`));
         }, timeout);
 
-        self.resolve = (...argv: any[]) => {
+        self.resolve = (crap: any) => {
             if (timeoutHandle) {
                 clearTimeout(timeoutHandle);
                 timeoutHandle = null;
             }
 
-            return resolve(...argv);
+            return resolve(crap);
         };
         self.reject = (...argv: any[]) => {
             if (timeoutHandle) {

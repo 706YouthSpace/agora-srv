@@ -11,12 +11,12 @@ const envMap: any = {
     local
 };
 
-export const config = envMap[process.env.NODE_ENV as any] || local;
+export const config: any = envMap[process.env.NODE_ENV as any] || local;
 
 
 @singleton()
 export class Config extends AsyncService {
-    [k: keyof typeof config]: any;
+    [k: string]: any;
     constructor() {
         super();
 
