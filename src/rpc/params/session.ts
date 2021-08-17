@@ -2,9 +2,10 @@ import { MongoSession } from "../../db/session";
 import { ObjectId } from "mongodb";
 import { RPCParam, Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta } from "tskit";
 import { autoInjectable } from 'tsyringe';
-import { Context } from "koa";
 import { decodeBase64UrlSafe, encodeBase64UrlSafe } from "../../lib/binary";
 import { isIPv4 } from "net";
+import { IncomingMessage } from "http";
+import { URL } from "url";
 
 export const SESSION_TOKEN_HEADER_NAME = 'X-Session-Token';
 export const SET_SESSION_TOKEN_HEADER_NAME = 'X-Set-Session-Token';
@@ -40,14 +41,28 @@ export function makeSessionToken(sid: ObjectId) {
     return Buffer.concat([sidBuff, signatureBuff]);
 }
 
+export interface ContextLike {
+
+    request: IncomingMessage;
+    get: (k: string) => string;
+    set?: (k: string, v: string) => void;
+    cookies?: {
+        get: (k: string) => string;
+        set?: (k: string, v: string, ops?: any) => void;
+        [k: string]: string | any;
+    }
+
+}
+
+
 @autoInjectable()
-export class Session extends RPCParam<Context> {
+export class Session extends RPCParam<ContextLike> {
 
     static fromObject(input: object) {
         const parsed = super.fromObject(input) as Session;
 
         if (!parsed.sessionToken) {
-            const sessionTokenText = parsed[RPC_CALL_ENVIROMENT]?.get(SESSION_TOKEN_HEADER_NAME) || parsed[RPC_CALL_ENVIROMENT]?.cookies.get(SESSION_TOKEN_COOKIE_NAME);
+            const sessionTokenText = parsed[RPC_CALL_ENVIROMENT]?.get(SESSION_TOKEN_HEADER_NAME) || parsed[RPC_CALL_ENVIROMENT]?.cookies?.get(SESSION_TOKEN_COOKIE_NAME);
 
             if (sessionTokenText && validSessionToken(sessionTokenText)) {
                 parsed.sessionToken = sessionTokenText;
@@ -120,22 +135,32 @@ export class Session extends RPCParam<Context> {
 
     httpSetToken() {
         const ctx = this[RPC_CALL_ENVIROMENT];
-        if (!ctx) {
+        if (!ctx?.set) {
             return;
         }
 
         ctx.set(SET_SESSION_TOKEN_HEADER_NAME, this.sessionToken);
 
+        if (!ctx.request.url) {
+            return;
+        }
+
+        const parsedUrl = new URL(ctx.request.url);
+
         const cookieProp: any = {
             expires: new Date(Date.now() + 86400 * 30 * 1000),
-            overwrite: true, domain: `.${ctx.request.hostname}`
+            overwrite: true, domain: `.${parsedUrl.hostname}`
         };
 
-        if (isIPv4(ctx.request.hostname)) {
+        if (isIPv4(parsedUrl.hostname)) {
             delete cookieProp.domain;
         }
 
-        ctx.cookie.set(SESSION_TOKEN_COOKIE_NAME, this.sessionToken, cookieProp);
+        if (!ctx?.cookies?.set) {
+            return;
+        }
+
+        ctx.cookies.set(SESSION_TOKEN_COOKIE_NAME, this.sessionToken, cookieProp);
     }
 
     metaSetToken<T extends object>(tgt: T) {

@@ -16,6 +16,6 @@ export abstract class MongoHandle<T> extends AsyncService {
     }
 
     init() {
-        this.dependencyReady.then(() => this.emit('ready'));
+        this.dependencyReady().then(() => this.emit('ready'));
     }
 }

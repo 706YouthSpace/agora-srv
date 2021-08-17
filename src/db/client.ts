@@ -1,5 +1,5 @@
-import { AbstractMongoDB } from '../../lib/mongodb';
-import { Config } from '../../config';
+import { AbstractMongoDB } from '../lib/mongodb';
+import { Config } from '../config';
 
 import { singleton, container } from 'tsyringe';
 import { MongoClientOptions } from 'mongodb';

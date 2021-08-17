@@ -1,6 +1,6 @@
 import { ExtendedContext, Task } from './interfaces';
 
-import { Defer } from '../defer';
+import { Defer } from '../../defer';
 
 
 export class TimeoutError extends Error { }

@@ -73,7 +73,7 @@ export async function autoSessionMiddleware(ctx: Context, next: () => Promise<an
         verifiedSessionSignature = encodeBase64UrlSafe(sessionTokenHasher.hash(verifiedSid) as Buffer);
 
         ctx.response.set(SET_SESSION_TOKEN_HEADER_NAME, `${verifiedSid}:${verifiedSessionSignature}`);
-        const cookieProp = {
+        const cookieProp: any = {
             expires: new Date(Date.now() + SESSION_EXPIRES_AFTER_MILLISECOUNDS),
             overwrite: true, domain: `.${ctx.request.hostname}`
         };

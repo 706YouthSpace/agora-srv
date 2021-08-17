@@ -13,10 +13,6 @@ import {
     wxMiniProgramDecryptB64, wxMiniProgramSignatureSha1
 } from './wx-cryptology';
 
-import { SharedStateManager, SharedState } from '../shared-state';
-
-import { EventEmitter } from 'events';
-
 const logger = console;
 
 import {
@@ -59,17 +55,20 @@ import { wxErrors } from './wx-errors';
 import { retry } from '../retry-decorator';
 import { Readable } from 'stream';
 import { CodeLogicError, ApplicationError } from '../errors';
+import { singleton } from 'tsyringe';
+import { AsyncService } from 'tskit';
+import { Config } from 'config';
 
 const WX_API_BASE_URI = 'https://api.weixin.qq.com';
 const RETRY_INTERVAL_MS = 4000;
 const OPERATION_TIMEOUT_MS = 3000;
 
-const SAFTY_PADDING_MS = 5000;
+// const SAFTY_PADDING_MS = 5000;
 const MAX_TRIES_TWO = 2;
 
-const COMPONENT_VERIFY_TICKET = 'component-access-ticket';
-const COMPONENT_ACCESS_TOKEN = 'component-access-token';
-const ACCESS_TOKEN = 'access-token';
+// const COMPONENT_VERIFY_TICKET = 'component-access-ticket';
+// const COMPONENT_ACCESS_TOKEN = 'component-access-token';
+// const ACCESS_TOKEN = 'access-token';
 
 export class WxPlatformError extends ApplicationError {
     err: WeChatErrorReceipt;
@@ -111,7 +110,8 @@ export interface WxClientAuthorizedMsg {
     preAuthCode: string;
 }
 
-export class WxPlatformService extends EventEmitter {
+@singleton()
+export class WxPlatformService extends AsyncService {
 
     baseUri: string = WX_API_BASE_URI;
 
@@ -119,8 +119,6 @@ export class WxPlatformService extends EventEmitter {
     timeout: number = OPERATION_TIMEOUT_MS;
 
     config: WxConfig;
-
-    sharedState: SharedStateManager;
 
     storage: Map<string, any> = new Map();
 
@@ -130,95 +128,99 @@ export class WxPlatformService extends EventEmitter {
     } = {};
 
     constructor(
-        wxConfig: WxConfig,
-        sharedStateManager: SharedStateManager
+        config: Config
     ) {
-        super();
+        super(...arguments);
+
+        const wxConfig = config.wechat;
+
         if (!wxConfig) {
             throw new TypeError('Invalid use of WxPlatformService');
-        }
-        if (!sharedStateManager) {
-            throw new Error('Unsatisfied service dependencies');
         }
 
         this.config = wxConfig;
 
-        this.sharedState = sharedStateManager;
-
+        this.init();
     }
 
-    _makeComonentAccessTicketClass() {
-        const key = 'ComponentVerifyTicketClass';
-        if (this.storage.has(key)) {
-            return this.storage.get(key);
-        }
-        class ComponentAccessTicket extends SharedState {
-            constructor() {
-                super();
-                this.on('error', (err) => {
-                    logger.error('ComponentVerifiyTicket Error', err);
-                });
-            }
-
-            next() {
-                throw new Error('ComponentVerifyTicket could only be received from Wechat. Nothing we could do.');
-            }
-        }
-
-        this.storage.set(key, ComponentAccessTicket);
-
-        return ComponentAccessTicket;
+    init() {
+        this.dependencyReady().then(() => {
+            this.emit('ready');
+        });
     }
 
-    _makeComonentAccessTokenClass() {
-        const key = 'ComponentAccessTokenClass';
-        if (this.storage.has(key)) {
-            return this.storage.get(key);
-        }
-        const componentAccessTicket = this.sharedState.create(this._makeComonentAccessTicketClass(), this._keyof(COMPONENT_VERIFY_TICKET));
-        // tslint:disable-next-line: no-this-assignment
-        const wxService = this;
-        class ComponentAccessToken extends SharedState {
-            async next() {
+    // _makeComonentAccessTicketClass() {
+    //     const key = 'ComponentVerifyTicketClass';
+    //     if (this.storage.has(key)) {
+    //         return this.storage.get(key);
+    //     }
+    //     class ComponentAccessTicket extends SharedState {
+    //         constructor() {
+    //             super();
+    //             this.on('error', (err) => {
+    //                 logger.error('ComponentVerifiyTicket Error', err);
+    //             });
+    //         }
 
-                const currentTicket = await componentAccessTicket.value;
-                const newTokenReceipt = await wxService.getComponentAccessToken(currentTicket);
+    //         next() {
+    //             throw new Error('ComponentVerifyTicket could only be received from Wechat. Nothing we could do.');
+    //         }
+    //     }
 
-                return {
-                    value: newTokenReceipt.component_access_token,
-                    expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
-                };
-            }
-        }
+    //     this.storage.set(key, ComponentAccessTicket);
 
-        this.storage.set(key, ComponentAccessToken);
+    //     return ComponentAccessTicket;
+    // }
 
-        return ComponentAccessToken;
-    }
+    // _makeComonentAccessTokenClass() {
+    //     const key = 'ComponentAccessTokenClass';
+    //     if (this.storage.has(key)) {
+    //         return this.storage.get(key);
+    //     }
+    //     const componentAccessTicket = this.sharedState.create(this._makeComonentAccessTicketClass(), this._keyof(COMPONENT_VERIFY_TICKET));
+    //     // tslint:disable-next-line: no-this-assignment
+    //     const wxService = this;
+    //     class ComponentAccessToken extends SharedState {
+    //         async next() {
 
-    _makeAccessTokenClass() {
-        const key = 'AccessTokenClass';
-        if (this.storage.has(key)) {
-            return this.storage.get(key);
-        }
-        // tslint:disable-next-line: no-this-assignment
-        const wxService = this;
-        // tslint:disable-next-line: max-classes-per-file
-        class AccessToken extends SharedState {
-            async next() {
-                const newTokenReceipt = await wxService.getAccessToken();
+    //             const currentTicket = await componentAccessTicket.value;
+    //             const newTokenReceipt = await wxService.getComponentAccessToken(currentTicket);
 
-                return {
-                    value: newTokenReceipt.access_token,
-                    expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
-                };
-            }
-        }
+    //             return {
+    //                 value: newTokenReceipt.component_access_token,
+    //                 expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
+    //             };
+    //         }
+    //     }
 
-        this.storage.set(key, AccessToken);
+    //     this.storage.set(key, ComponentAccessToken);
 
-        return AccessToken;
-    }
+    //     return ComponentAccessToken;
+    // }
+
+    // _makeAccessTokenClass() {
+    //     const key = 'AccessTokenClass';
+    //     if (this.storage.has(key)) {
+    //         return this.storage.get(key);
+    //     }
+    //     // tslint:disable-next-line: no-this-assignment
+    //     const wxService = this;
+    //     // tslint:disable-next-line: max-classes-per-file
+    //     class AccessToken extends SharedState {
+    //         async next() {
+    //             const newTokenReceipt = await wxService.getAccessToken();
+
+    //             return {
+    //                 value: newTokenReceipt.access_token,
+    //                 expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
+    //             };
+    //         }
+    //     }
+
+    //     this.storage.set(key, AccessToken);
+
+    //     return AccessToken;
+    // }
 
     _keyof(key: string, clientAppId?: string) {
         if (clientAppId) {
@@ -310,42 +312,44 @@ export class WxPlatformService extends EventEmitter {
         return signature === wxOpenPlatformSignatureSha1(this.config.signatureToken, timestamp, nonce);
     }
 
-    receiveNewComponentVerifyTicket(ticketVal: string, validForMs: number = 20 * 60 * 1000) {
+    // receiveNewComponentVerifyTicket(ticketVal: string, validForMs: number = 20 * 60 * 1000) {
 
-        return this.sharedState._setState(
-            this._keyof(COMPONENT_VERIFY_TICKET),
-            {
-                value: ticketVal,
-                expiresAt: Date.now() + validForMs
-            }
-        );
+    //     throw new Error('Not Implemented');
+    //     // return this.sharedState._setState(
+    //     //     this._keyof(COMPONENT_VERIFY_TICKET),
+    //     //     {
+    //     //         value: ticketVal,
+    //     //         expiresAt: Date.now() + validForMs
+    //     //     }
+    //     // );
 
-    }
+    // }
 
     componentAppKickOff() {
-        const componentVerifyTicket = this.sharedState.create(this._makeComonentAccessTicketClass(), this._keyof(COMPONENT_VERIFY_TICKET));
+        throw new Error('Not Implemented');
+        // const componentVerifyTicket = await this.localVerifyTicket;
 
-        const componentAccessToken = this.sharedState.create(this._makeComonentAccessTokenClass(), this._keyof(COMPONENT_ACCESS_TOKEN));
+        // const componentAccessToken = await this.localComponentAccessToken;
 
-        componentVerifyTicket.on('unlock', (ticket) => {
-            this.emit('component_verify_ticket', ticket);
-        });
+        // componentVerifyTicket.on('unlock', (ticket) => {
+        //     this.emit('component_verify_ticket', ticket);
+        // });
 
-        this.on('component_verify_ticket', (vlu) => {
-            this.localState.componentVerifyTicket = vlu;
-            if (!this.localState.componentAccessToken) {
-                componentAccessToken.next();
-            }
-        });
+        // this.on('component_verify_ticket', (vlu) => {
+        //     this.localState.componentVerifyTicket = vlu;
+        //     if (!this.localState.componentAccessToken) {
+        //         componentAccessToken.next();
+        //     }
+        // });
 
-        componentAccessToken.on('unlock', (vlu) => {
-            this.emit('component_access_token', vlu);
-        });
+        // componentAccessToken.on('unlock', (vlu) => {
+        //     this.emit('component_access_token', vlu);
+        // });
 
-        this.on('component_access_token', (vlu) => {
-            this.localState.componentAccessToken = vlu;
-            logger.info('WxPlatform: ComponentAccessToken Is Available');
-        });
+        // this.on('component_access_token', (vlu) => {
+        //     this.localState.componentAccessToken = vlu;
+        //     logger.info('WxPlatform: ComponentAccessToken Is Available');
+        // });
 
         return this;
     }
@@ -361,7 +365,7 @@ export class WxPlatformService extends EventEmitter {
                     if (!message.ComponentVerifyTicket) {
                         break;
                     }
-                    await this.receiveNewComponentVerifyTicket(message.ComponentVerifyTicket);
+                    // await this.receiveNewComponentVerifyTicket(message.ComponentVerifyTicket);
 
                     break;
                 }
@@ -543,16 +547,12 @@ export class WxPlatformService extends EventEmitter {
         return result as WxoComponentAccessTokenReceipt;
     }
 
-    get localComponentAccessToken() {
-        const componentAccessToken = this.sharedState.create<string>(this._makeComonentAccessTokenClass(), this._keyof(COMPONENT_ACCESS_TOKEN));
-
-        return componentAccessToken.value;
+    get localComponentAccessToken(): Promise<string> {
+        throw new Error('Not Implemented');
     }
 
-    get localAccessToken() {
-        const accessToken = this.sharedState.create<string>(this._makeAccessTokenClass(), this._keyof(ACCESS_TOKEN));
-        
-        return accessToken.value;
+    get localAccessToken(): Promise<string> {
+        throw new Error('Not Implemented');
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -1367,7 +1367,7 @@ export class WxPlatformService extends EventEmitter {
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
     async wxaLogin(code: string, appId?: string, appSecret?: string) {
-        
+
         const realAppId = appId || this.config.appId;
         const realAppSecret = appSecret || this.config.appSecret;
 
@@ -1386,7 +1386,7 @@ export class WxPlatformService extends EventEmitter {
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
     async wxaComponentLogin(code: string, appId?: string, appSecret?: string) {
-        
+
         const realAppId = appId || this.config.appId;
         const realAppSecret = appSecret || this.config.appSecret;
 
@@ -1770,7 +1770,7 @@ export class WxPlatformService extends EventEmitter {
     ) {
         const result = await this._postRequest(
             `https://api.weixin.qq.com/wxa/media_check_async`,
-            { media_url: mediaUrl, media_type: type === 'audio' ? 2 : 1},
+            { media_url: mediaUrl, media_type: type === 'audio' ? 2 : 1 },
             { access_token: clientAccessToken }
         );
 
