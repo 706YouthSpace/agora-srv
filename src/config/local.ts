@@ -3,7 +3,7 @@ export const config = {
         listenPort: 3001
     },
     tmpDir: "/tmp/x706",
-    mongoUrl: "mongodb://127.0.0.1:27017/x706",
+    mongoUrl: "mongodb://x706:706666@127.0.0.1:27017/x706",
     redis: {
         host: "192.168.110.42",
         port: 6379
