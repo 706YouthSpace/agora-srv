@@ -34,7 +34,7 @@ export class MongoSession extends MongoHandle<Session> {
 
 
     async get(_id: ObjectId) {
-        const r = this.collection.findOne({ _id });
+        const r = await this.collection.findOne({ _id });
 
         if (!r) {
             return r;

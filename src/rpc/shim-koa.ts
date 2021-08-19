@@ -21,13 +21,15 @@ function makeSuccResponse(result: any) {
 
 function makeErrResponse(error: Error) {
     let code = 500;
+
+    console.warn(error, error.stack);
     if (error instanceof ApplicationError) {
         code = Math.floor(error.status / 100);
         return {
             code,
             status: error.status, data: null,
             message: error.readableMessage || error.message,
-            error: error.toObject()
+            error: error.toObject(),
         };
     }
 
@@ -45,10 +47,15 @@ export async function shimControllerForKoa(ctx: Context, next: (err?: Error) => 
     ctx.status = 404;
 
     let methodId;
-    if (ctx.request.URL.pathname === '/rpc') {
+    const pathName = ctx.request.URL.pathname;
+    if (pathName === '/rpc') {
         methodId = ctx.query.method;
-    } else {
+    } else if (pathName.startsWith('/api')) {
         methodId = ctx.request.URL.pathname.replace(/^\/api/i, '').split('/').filter(Boolean).join('.');
+    }
+
+    if (!methodId) {
+        return next();
     }
 
 

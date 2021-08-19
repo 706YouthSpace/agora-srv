@@ -14,6 +14,8 @@ export class MiscRPCHost extends RPCHost {
 
         const data = await session.fetch();
 
-        return data;
+        session.httpSetToken();
+
+        return { wtf: 1, ...data };
     }
 }

@@ -60,7 +60,6 @@ export class Session extends RPCParam<ContextLike> {
 
     static fromObject(input: object) {
         const parsed = super.fromObject(input) as Session;
-
         if (!parsed.sessionToken) {
             const sessionTokenText = parsed[RPC_CALL_ENVIROMENT]?.get(SESSION_TOKEN_HEADER_NAME) || parsed[RPC_CALL_ENVIROMENT]?.cookies?.get(SESSION_TOKEN_COOKIE_NAME);
 
@@ -145,7 +144,7 @@ export class Session extends RPCParam<ContextLike> {
             return;
         }
 
-        const parsedUrl = new URL(ctx.request.url);
+        const parsedUrl = new URL(ctx.request.url, `http://${ctx.request.headers.host}`);
 
         const cookieProp: any = {
             expires: new Date(Date.now() + 86400 * 30 * 1000),
