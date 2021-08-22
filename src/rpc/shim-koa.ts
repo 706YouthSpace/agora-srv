@@ -5,7 +5,7 @@ import { rPCRegistry } from "./civi-rpc";
 
 import stuff from './loader';
 
-stuff.sayhi();
+stuff.load();
 
 function makeSuccResponse(result: any) {
 

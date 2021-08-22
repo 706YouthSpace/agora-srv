@@ -14,8 +14,8 @@ export class App extends AsyncService {
         super(...arguments);
     }
 
-    sayhi() {
-        return 'hi';
+    load() {
+        return 'It does not matter what this function dose. Just to make all RPCHosts be loaded.';
     }
 
 }

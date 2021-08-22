@@ -102,14 +102,14 @@ export class Session extends RPCParam<ContextLike> {
     async fetch() {
 
         if (this.__isNew) {
-            return this.data;
+            return this.data as { [k: string]: any };
         }
 
         await this.mongoSession.serviceReady();
 
-        this.data = await this.mongoSession.get(this.sessionId);
+        this.data = await this.mongoSession.get(this.sessionId) || {};
 
-        return this.data;
+        return this.data as { [k: string]: any };
     }
 
     async save() {
