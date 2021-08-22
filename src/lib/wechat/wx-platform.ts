@@ -57,7 +57,7 @@ import { Readable } from 'stream';
 import { CodeLogicError, ApplicationError } from '../errors';
 import { singleton } from 'tsyringe';
 import { AsyncService } from 'tskit';
-import { Config } from 'config';
+import { Config } from '../../config';
 
 const WX_API_BASE_URI = 'https://api.weixin.qq.com';
 const RETRY_INTERVAL_MS = 4000;
@@ -140,13 +140,10 @@ export class WxPlatformService extends AsyncService {
 
         this.config = wxConfig;
 
-        this.init();
+        this.init().then(() => this.emit('ready'));
     }
 
-    init() {
-        this.dependencyReady().then(() => {
-            this.emit('ready');
-        });
+    async init() {
     }
 
     // _makeComonentAccessTicketClass() {

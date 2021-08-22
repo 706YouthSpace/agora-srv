@@ -1,12 +1,9 @@
 import _ from 'lodash';
-import { Collection, ObjectId } from "mongodb";
-import { deepCreate, vectorize } from "tskit";
-import { MongoHandle } from "../lib/mongodb/collection";
-import { MongoDB } from "./client";
 import { singleton, container } from 'tsyringe';
+import { MongoCollection } from './base';
 
 export interface Config {
-    _id: ObjectId;
+    _id: string;
 
     [k: string]: any;
 
@@ -17,44 +14,89 @@ export interface Config {
 
 
 @singleton()
-export class MongoConfig extends MongoHandle<Config> {
-    collection!: Collection<Config>;
-    typeclass: undefined;
+export class MongoConfig extends MongoCollection<Config, string> {
+    collectionName = 'configs';
 
-    constructor(db: MongoDB) {
-        super(db);
-    }
+    confMap: Map<string, { [k: string]: any }> = new Map();
+
+    subscriptionKeys?: string[];
 
     async init() {
-        await this.dependencyReady();
-        this.collection = this.mongo.db.collection<Config>('configs');
+        await super.init();
+
+        const subscription = await this.catchUp(...(this.subscriptionKeys || []));
+
+        subscription.on('error', () => this.emit('revoked'));
+
         this.emit('ready');
     }
 
+    localGet(_id: string) {
+        return this.confMap.get(_id);
+    }
 
-    async get(_id: ObjectId) {
-        const r = await this.collection.findOne({ _id });
 
-        if (!r) {
-            return r;
+    subscribe(...keys: string[]) {
+        const eventTypes = ['insert', 'update', 'delete', 'invalidate'];
+        const matchQuery: any = {
+            operationType: { $in: eventTypes }
+        };
+        if (keys.length) {
+            eventTypes.shift();
+            matchQuery['docutmentKey._id'] = { $in: keys };
+
         }
 
-        return deepCreate(r);
+        const changeStream = this.collection.watch([{ $match: matchQuery }], { fullDocument: 'updateLookup' });
+
+        changeStream.on('invalidate', () => {
+            changeStream.close();
+        });
+
+        this.once('revoked', () => changeStream.close());
+
+        return changeStream;
     }
 
+    async catchUp(...keys: string[]) {
 
-    set(_id: ObjectId, data: Partial<Config>) {
-        const now = new Date();
+        const changeStream = this.subscribe(...keys);
 
-        return this.collection.findOneAndUpdate({ _id }, { $set: vectorize({ ...data, updatedAt: now }), $setOnInsert: { createdAt: now } }, { upsert: true });
-    }
+        changeStream.on('change', (event) => {
+            switch (event.operationType) {
+                case 'update':
+                case 'insert': {
+                    const doc = event.fullDocument;
+                    if (!doc) {
+                        break;
+                    }
+                    const thing = this.confMap.get(doc._id) || doc;
+                    _.merge(thing, doc);
+                    this.confMap.set(doc._id, thing);
 
-    save(data: Partial<Config> & { _id: ObjectId }) {
-        return this.set(data._id, _.omit(data, '_id'))
-    }
+                    this.emit('change', doc._id, thing);
 
-    clear(_id: ObjectId) {
-        return this.collection.deleteOne({ _id });
+                    break;
+                }
+
+                case 'invalidate':
+                default: {
+                    break;
+                }
+            }
+        });
+
+        const r = await this.collection.find({}).toArray();
+
+        for (const x of r) {
+            const thing = this.confMap.get(x._id) || x;
+
+            _.merge(thing, x);
+
+            this.confMap.set(x._id, thing);
+        }
+
+        return changeStream;
     }
 }
 

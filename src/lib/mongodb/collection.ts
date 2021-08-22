@@ -5,17 +5,26 @@ import { AbstractMongoDB } from "./client";
 
 export abstract class MongoHandle<T> extends AsyncService {
 
-    abstract collection: Collection<T>;
+
+    abstract collectionName: string;
+    abstract mongo: AbstractMongoDB;
+    collection!: Collection<T>;
     abstract typeclass?: { new(): T };
 
-    constructor(protected mongo: AbstractMongoDB) {
-        super(mongo);
-        mongo.on('revoked', () => this.emit('revoked'));
+    constructor(...whatever: any[]) {
+        super(...whatever);
 
-        this.init();
+
+        if ((this as any).mongo && !this.__dependencies.includes((this as any).mongo)) {
+            this.__dependencies.push((this as any).mongo);
+        }
+
+        setImmediate(() => this.init().then(() => this.emit('ready')));
     }
 
-    init() {
-        this.dependencyReady().then(() => this.emit('ready'));
+    async init() {
+        this.mongo.on('revoked', () => this.emit('revoked'));
+        await this.dependencyReady();
+        this.collection = this.mongo.db.collection(this.collectionName);
     }
 }

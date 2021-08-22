@@ -1,9 +1,8 @@
 import _ from 'lodash';
-import { Collection, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import { deepCreate, vectorize } from "tskit";
-import { MongoHandle } from "../lib/mongodb/collection";
-import { MongoDB } from "./client";
 import { singleton, container } from 'tsyringe';
+import { MongoCollection } from './base';
 
 export interface Session {
     _id: ObjectId;
@@ -17,21 +16,8 @@ export interface Session {
 
 
 @singleton()
-export class MongoSession extends MongoHandle<Session> {
-    collection!: Collection<Session>;
-    typeclass: undefined;
-
-    constructor(db: MongoDB) {
-        super(db);
-
-    }
-
-    async init() {
-        await this.dependencyReady();
-        this.collection = this.mongo.db.collection<Session>('sessions');
-        this.emit('ready');
-    }
-
+export class MongoSession extends MongoCollection<Session> {
+    collectionName = 'sessions';
 
     async get(_id: ObjectId) {
         const r = await this.collection.findOne({ _id });

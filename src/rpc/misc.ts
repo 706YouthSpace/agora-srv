@@ -1,7 +1,9 @@
 import { RPCHost } from "tskit";
+import { singleton } from "tsyringe";
 import { RPCMethod } from "./civi-rpc";
 import { Session } from "./params/session";
 
+@singleton()
 export class MiscRPCHost extends RPCHost {
 
     @RPCMethod('misc.ping')

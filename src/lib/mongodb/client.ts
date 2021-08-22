@@ -15,7 +15,7 @@ export abstract class AbstractMongoDB extends AsyncService {
             this.emit('revoked', err);
         });
 
-        this.init();
+        this.init().then(() => this.emit('ready'));
     }
 
     createClient() {
@@ -26,6 +26,7 @@ export abstract class AbstractMongoDB extends AsyncService {
         await this.dependencyReady();
 
         this.client = this.createClient();
+        this.db = this.client.db();
 
         this.client.on('error', (err) => {
             this.emit('error', err);
@@ -33,7 +34,6 @@ export abstract class AbstractMongoDB extends AsyncService {
 
         try {
             await this.client.connect();
-            this.db = this.client.db();
             setImmediate(() => {
                 this.emit('ready', this.client);
             });
