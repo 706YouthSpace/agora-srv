@@ -1,4 +1,3 @@
-import { Session } from "inspector";
 import { MongoHandle } from "../lib/mongodb/collection";
 import { vectorize } from "../lib/simple-tools";
 import _ from "lodash";
@@ -11,6 +10,7 @@ export abstract class MongoCollection<T extends Document, P = ObjectId> extends 
 
     @InjectProperty()
     mongo!: MongoDB;
+
     typeclass: undefined;
 
     async get(_id: P) {
@@ -23,21 +23,36 @@ export abstract class MongoCollection<T extends Document, P = ObjectId> extends 
         return deepCreate(r);
     }
 
+    async create(data: Partial<T>) {
+        const now = new Date();
+        const doc: any = { ...data, createdAt: now, updatedAt: now };
+        const r = await this.collection.insertOne(doc);
 
-    set(_id: P, data: Partial<Session>) {
+        doc._id = r.insertedId;
+
+        return r as any as T;
+    }
+
+
+    set(_id: P, data: Partial<T>) {
         const now = new Date();
 
         return this.collection.findOneAndUpdate(
             { _id },
             { $set: vectorize({ ...data, updatedAt: now }), $setOnInsert: { createdAt: now } } as any,
-            { upsert: true });
+            { upsert: true }
+        );
     }
 
-    save(data: Partial<Session> & { _id: P }) {
-        return this.set(data._id, _.omit(data, '_id'))
+    save(data: Partial<T> & { _id: P }) {
+        return this.set(data._id, _.omit(data, '_id') as any)
     }
 
     clear(_id: P) {
+        return this.collection.deleteOne({ _id });
+    }
+
+    del(_id: P) {
         return this.collection.deleteOne({ _id });
     }
 

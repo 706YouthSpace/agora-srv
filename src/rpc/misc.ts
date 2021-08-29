@@ -1,7 +1,7 @@
 import { RPCHost } from "tskit";
 import { singleton } from "tsyringe";
 import { RPCMethod } from "./civi-rpc";
-import { Session } from "./params/session";
+import { Session } from "./dto/session";
 
 @singleton()
 export class MiscRPCHost extends RPCHost {

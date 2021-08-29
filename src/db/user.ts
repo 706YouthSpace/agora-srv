@@ -2,14 +2,23 @@ import { WxaDecryptedUserInfo } from '../lib/wechat/interface';
 import _ from 'lodash';
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
-import { ObjectId } from 'mongodb';
+import { ObjectId, UpdateFilter } from 'mongodb';
 
 export interface User {
     _id: ObjectId;
 
-    wxOpenId?: string;
-    wxUnionId?: string;
+    wxOpenId: {
+        [appId: string]: string;
+    };
+
+    wxUnionId: string[];
+
     wxUserInfo?: Partial<WxaDecryptedUserInfo>;
+
+    nickName?: string;
+    realName?: string;
+    avatar?: string | ObjectId;
+    bio?: string;
 
     passwordHash?: string;
 
@@ -27,23 +36,37 @@ export class MongoUser extends MongoCollection<User> {
     collectionName = 'users';
 
 
-    findOneByWxOpenId(wxOpenId: string) {
-        return this.collection.findOne({ wxOpenId });
+    findOneByWxOpenId(appId: string, wxOpenId: string) {
+        return this.collection.findOne({ [`wxOpenId.${appId}`]: wxOpenId });
     }
 
-    upsertByWxOpenId(wxOpenId: string, wxUnionId?: string) {
-        return this.collection.findOneAndUpdate({
-            wxOpenId
-        }, {
+    upsertByWxOpenId(appId: string, wxOpenId: string, wxUnionId?: string) {
+
+        const query: UpdateFilter<User> = wxUnionId ? {
             $set: {
-                lastLoggedInAt: new Date(),
+                lastLoggedInAt: new Date()
+            },
+            $addToSet: {
                 wxUnionId
             },
             $setOnInsert: {
                 createdAt: new Date(),
                 updatedAt: new Date()
             }
-        }, {
+        } : {
+            $set: {
+                lastLoggedInAt: new Date()
+            },
+            $setOnInsert: {
+                wxUnionId: [],
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }
+        } as any;
+
+        return this.collection.findOneAndUpdate({
+            [`wxOpenId.${appId}`]: wxOpenId
+        }, query, {
             returnDocument: 'after',
             upsert: true,
         });

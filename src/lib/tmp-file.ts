@@ -15,7 +15,7 @@ export class TemporaryFileManger {
                 if (!fstat.isDirectory) {
                     throw new Error('TmpFile targert dir was not a dir: ' + rootDir);
                 }
-            } catch (err) {
+            } catch (err: any) {
                 if (err.code === 'ENOENT') {
                     fs.mkdirSync(rootDir);
                     this.rootDir = rootDir;

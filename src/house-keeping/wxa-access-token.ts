@@ -60,6 +60,7 @@ export class WxaAccessTokenAgent extends AsyncService {
 
         const conf = this.houseKeepingConfig.localGet(this.wxaConfigKey) || {};
 
+        conf.appId = this.wxConfig.appId;
         conf.accessToken = result;
         conf.accessTokenExpiresBefore = new Date(Date.now() + result.expires_in * 1000 * 0.9);
 

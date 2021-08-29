@@ -6,18 +6,19 @@ import { Config } from "../config";
 import { ChangeStreamDocument } from "mongodb";
 import _ from "lodash";
 import { Pick, RPCMethod } from "./civi-rpc";
-import { Session } from "./params/session";
+import { Session } from "./dto/session";
 import { MongoUser } from "../db/user";
 
 interface WxaConf {
-    accessToken: string;
-    accessTokenExpiresBefore: Date;
+    appId: string;
+    accessToken?: string;
+    accessTokenExpiresBefore?: Date;
 };
 
 @singleton()
 export class UserRPCHost extends RPCHost {
 
-    wxaConfig: Partial<WxaConf> = {};
+    wxaConfig: WxaConf = {} as any;
     constructor(
         protected mongoConf: MongoConfig,
         protected config: Config,
@@ -34,8 +35,8 @@ export class UserRPCHost extends RPCHost {
 
         await this.dependencyReady();
 
-        this.wxaConfig = this.mongoConf.localGet(wxaConfigKey) || {};
-
+        this.wxaConfig = this.mongoConf.localGet(wxaConfigKey) || {} as any;
+        this.wxaConfig.appId = wxConfig.appId;
         this.mongoConf.on('change', (key, changeEvent: ChangeStreamDocument) => {
             if (key !== wxaConfigKey) {
                 return;
@@ -58,7 +59,7 @@ export class UserRPCHost extends RPCHost {
             session.httpSetToken();
         }
 
-        const userResult = await this.mongoUser.upsertByWxOpenId(loginResult.openid, loginResult.unionid);
+        const userResult = await this.mongoUser.upsertByWxOpenId(this.wxaConfig.appId, loginResult.openid, loginResult.unionid);
 
         if (!userResult.ok) {
             return null;
