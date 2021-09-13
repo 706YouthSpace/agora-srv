@@ -4,17 +4,21 @@ import { app } from './api';
 
 import { logger } from './services/logger';
 import { config } from './config';
+import loader from './rpc/loader';
 
 // import { upgradeToKoa } from './lib/ws-koa';
 
 const LISTEN_PORT = config.server.listenPort || 3000;
 
 // const server = app.listen(LISTEN_PORT);
-app.listen(LISTEN_PORT);
+loader.load().then(() => {
 
-// upgradeToKoa(app, server);
+    app.listen(LISTEN_PORT);
 
-logger.info(`Public Server listining on TCP port ${LISTEN_PORT}`);
+    // upgradeToKoa(app, server);
+
+    logger.info(`Public Server listining on TCP port ${LISTEN_PORT}`);
+});
 
 process.on('unhandledRejection', (_err) => {
     // console.dir(err, {depth: 5});

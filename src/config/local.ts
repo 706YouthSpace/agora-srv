@@ -9,10 +9,10 @@ export const config = {
         port: 6379
     },
     wechat: {
-        appId: "wxcba08e00acb7c966",
-        appSecret: "a60068c681f913064f06150f6fb3f101",
-        signatureToken: "qJMXRUNfdr76dTveZ7QuRQHRonFrQgh9",
-        aesEncryptionKey: "1zRpONewtPK9UMqzXVLLEA7rOsGxJn2QcvqME3eLgqQ",
+        appId: "wx46d68a9da9163dcf",
+        appSecret: "428c7f7fa41e8226f992ecddb6fd95ef",
+        signatureToken: "sYQQt8is9yQkGFjmbwd8LfL4TDmeG2iC",
+        aesEncryptionKey: "Xr59LQH0QFiR7ULJZV5Rtul6RceMmMfatKHbYQnjncM",
         callbackBaseUri: "/",
         serviceHosts: [
             "dev.local.naiver.org",

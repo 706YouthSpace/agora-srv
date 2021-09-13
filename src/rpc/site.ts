@@ -15,6 +15,8 @@ export class SiteRPCHost extends RPCHost {
         protected mongoSite: MongoSite
     ) {
         super(...arguments);
+
+        this.init();
     }
 
     async init() {

@@ -16,10 +16,12 @@ export class App extends AsyncService {
         public rpcSite: SiteRPCHost,
     ) {
         super(...arguments);
+
+        this.dependencyReady().then(() => this.emit('ready'));
     }
 
     load() {
-        return 'It does not matter what this function dose. Just to make all RPCHosts be loaded.';
+        return this.dependencyReady();
     }
 
 }

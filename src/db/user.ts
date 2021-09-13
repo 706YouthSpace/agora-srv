@@ -41,7 +41,6 @@ export class MongoUser extends MongoCollection<User> {
     }
 
     upsertByWxOpenId(appId: string, wxOpenId: string, wxUnionId?: string) {
-
         const query: UpdateFilter<User> = wxUnionId ? {
             $set: {
                 lastLoggedInAt: new Date()

@@ -26,15 +26,15 @@ export class UserRPCHost extends RPCHost {
         protected mongoUser: MongoUser
     ) {
         super(...arguments);
-
+        this.init();
     }
 
     async init() {
-        const wxConfig = this.config.wechat;
-        const wxaConfigKey = `wxa.${wxConfig.appId}`;
 
         await this.dependencyReady();
 
+        const wxConfig = this.config.wechat;
+        const wxaConfigKey = `wxa.${wxConfig.appId}`;
         this.wxaConfig = this.mongoConf.localGet(wxaConfigKey) || {} as any;
         this.wxaConfig.appId = wxConfig.appId;
         this.mongoConf.on('change', (key, changeEvent: ChangeStreamDocument) => {
@@ -68,8 +68,8 @@ export class UserRPCHost extends RPCHost {
         const user = userResult.value!;
 
         const sessionData = await session.fetch();
-
         sessionData.user = user._id;
+        sessionData.wxaSessionKey = loginResult.session_key;
 
         await session.save();
 

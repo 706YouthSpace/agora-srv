@@ -11,6 +11,7 @@ export class GB2260RPCHost extends RPCHost {
         protected gb2260: GB2260
     ) {
         super(...arguments);
+        this.init();
     }
 
     async init() {

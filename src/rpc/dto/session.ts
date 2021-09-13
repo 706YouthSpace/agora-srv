@@ -63,6 +63,7 @@ export class Session extends Dto<ContextLike> {
         if (!parsed.sessionToken) {
             const sessionTokenText = parsed[RPC_CALL_ENVIROMENT]?.get(SESSION_TOKEN_HEADER_NAME) || parsed[RPC_CALL_ENVIROMENT]?.cookies?.get(SESSION_TOKEN_COOKIE_NAME);
 
+            // console.log(parsed[RPC_CALL_ENVIROMENT], sessionTokenText);
             if (sessionTokenText && validSessionToken(sessionTokenText)) {
                 parsed.sessionToken = sessionTokenText;
                 parsed.sessionId = sessionIdOf(sessionTokenText);

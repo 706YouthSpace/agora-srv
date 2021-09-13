@@ -1,8 +1,7 @@
 import { MongoHandle } from "../lib/mongodb/collection";
-import { vectorize } from "../lib/simple-tools";
 import _ from "lodash";
 import { ObjectId, Document } from "mongodb";
-import { deepCreate } from "@naiverlabs/tskit";
+import { deepCreate, vectorize } from "@naiverlabs/tskit";
 import { MongoDB } from "./client";
 import { InjectProperty } from "../lib/property-injector";
 
@@ -36,7 +35,6 @@ export abstract class MongoCollection<T extends Document, P = ObjectId> extends 
 
     set(_id: P, data: Partial<T>) {
         const now = new Date();
-
         return this.collection.findOneAndUpdate(
             { _id },
             { $set: vectorize({ ...data, updatedAt: now }), $setOnInsert: { createdAt: now } } as any,
