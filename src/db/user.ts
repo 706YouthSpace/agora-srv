@@ -1,4 +1,4 @@
-import { WxaDecryptedUserInfo } from '../lib/wechat/interface';
+import { WxaDecryptedUserInfo } from '../services/wechat/interface';
 import _ from 'lodash';
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';

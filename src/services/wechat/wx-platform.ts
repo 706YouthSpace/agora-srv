@@ -6,7 +6,7 @@ import _ from 'lodash';
 
 import {
     Defer
-} from '../defer';
+} from '../../lib/defer';
 
 import {
     wxOpenPlatformSignatureSha1, wxOpenPlatformDecryptB64, wxOpenPlatformEncryptB64,
@@ -15,49 +15,15 @@ import {
 
 const logger = console;
 
-import {
-    WeChatErrorReceipt,
-    WxaServerUriReceipt,
-    WxaWebViewWhitelistReceipt,
-    WxaAccountInfoReceipt,
-    WxaNamingReceipt,
-    WxaNamingConditionQueryReceipt,
-    WxaNamingPrecheckReceipt,
-    WxaGetAllCategoriesReceipt,
-    WxaGetCurrentCategoriesReceipt,
-    WxaBindTesterReceipt,
-    WxaGetAllTestersReceipt,
-    WxaCodeCategoriesReceipt,
-    WxaListPagesReceipt,
-    WxaSubmitReceipt,
-    WxaCheckAuditionStatusReceipt,
-    WxaCheckLatestAuditionStatusReceipt,
-    WxaAPISupportageReceipt,
-    WxaQRReferenceReceipt,
-    WxaVerificationFileReceipt,
-    WxaGrayScaleStatusReceipt,
-    WxaGetAllCodeDraftsReceipt,
-    WxaGetAllCodeTemplatesReceipt,
-    WxaLoginReceipt,
-    WxaGetAllMessageComponentsReceipt,
-    WxaGetMessageComponentReceipt,
-    WxaComposeMessageTemplateReceipt,
-    WxaGetAllMessageTemplatesReceipt,
-    WxaGetCurrentSearchPreferenceReceipt,
-    WxaGetPluginsReceipt,
-    WeChatMediaUploadReceipt,
-    WECHAT_API_ACCESS_REALM,
-    WxoPreAuthCodeReceipt, WxoComponentAccessTokenReceipt,
-    WxoClientAuthorizationReceipt, WxoClientAuthorizationTokenRefreshReceipt,
-    WxoClientInfoReceipt, WxoClientOptionReceipt, WxoAccountOpsWithAppIdReceipt, WxoAccessTokenReceipt
-} from './interface';
 import { wxErrors } from './wx-errors';
-import { retry } from '../retry-decorator';
+import { retry } from '../../lib/retry-decorator';
 import { Readable } from 'stream';
-import { CodeLogicError, ApplicationError } from '../errors';
 import { singleton } from 'tsyringe';
-import { AsyncService } from '@naiverlabs/tskit';
+import { AsyncService, ApplicationError } from '@naiverlabs/tskit';
 import { Config } from '../../config';
+
+import * as inf from './interface';
+import { WECHAT_API_ACCESS_REALM } from './interface';
 
 const WX_API_BASE_URI = 'https://api.weixin.qq.com';
 const RETRY_INTERVAL_MS = 4000;
@@ -71,24 +37,14 @@ const MAX_TRIES_TWO = 2;
 // const ACCESS_TOKEN = 'access-token';
 
 export class WxPlatformError extends ApplicationError {
-    err: WeChatErrorReceipt;
+    err: inf.WeChatErrorReceipt;
     localKnowledge?: string;
-    constructor(err: WeChatErrorReceipt) {
+    constructor(err: inf.WeChatErrorReceipt) {
         super(40004, err);
         this.err = err;
         if (err.errcode) {
             this.localKnowledge = wxErrors[err.errcode];
         }
-    }
-}
-
-export class WxPlatformLogicError extends CodeLogicError {
-    err: any;
-    constructor(err: any)
-    constructor(msg: string, err?: any)
-    constructor(e1: string | any, e2?: any) {
-        super(`${e1}`);
-        this.err = e2 || e1;
     }
 }
 
@@ -541,7 +497,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxoComponentAccessTokenReceipt;
+        return result as inf.WxoComponentAccessTokenReceipt;
     }
 
     get localComponentAccessToken(): Promise<string> {
@@ -563,7 +519,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxoAccessTokenReceipt;
+        return result as inf.WxoAccessTokenReceipt;
     }
 
     async getPreAuthCode(pComponentAccessToken?: string) {
@@ -579,7 +535,7 @@ export class WxPlatformService extends AsyncService {
             { component_access_token: componentAccessToken }
         );
 
-        return result as WxoPreAuthCodeReceipt;
+        return result as inf.WxoPreAuthCodeReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -597,7 +553,7 @@ export class WxPlatformService extends AsyncService {
             { component_access_token: componentAccessToken }
         );
 
-        return result as WxoClientAuthorizationReceipt;
+        return result as inf.WxoClientAuthorizationReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -616,7 +572,7 @@ export class WxPlatformService extends AsyncService {
             { component_access_token: componentAccessToken }
         );
 
-        return result as WxoClientAuthorizationTokenRefreshReceipt;
+        return result as inf.WxoClientAuthorizationTokenRefreshReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -634,7 +590,7 @@ export class WxPlatformService extends AsyncService {
             { component_access_token: componentAccessToken }
         );
 
-        return result as WxoClientInfoReceipt;
+        return result as inf.WxoClientInfoReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -653,7 +609,7 @@ export class WxPlatformService extends AsyncService {
             { component_access_token: componentAccessToken }
         );
 
-        return result as WxoClientOptionReceipt;
+        return result as inf.WxoClientOptionReceipt;
     }
 
     async setClientOption(clientAppId: string, optionName: string, optionValue: string, pComponentAccessToken?: string) {
@@ -675,7 +631,7 @@ export class WxPlatformService extends AsyncService {
 
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -711,7 +667,7 @@ export class WxPlatformService extends AsyncService {
     }
 
 
-    async wxaClientServerUriOperations(clientAccessToken: string, action?: 'get'): Promise<WxaServerUriReceipt>;
+    async wxaClientServerUriOperations(clientAccessToken: string, action?: 'get'): Promise<inf.WxaServerUriReceipt>;
     async wxaClientServerUriOperations(
         clientAccessToken: string,
         action: 'add' | 'delete' | 'set',
@@ -719,7 +675,7 @@ export class WxPlatformService extends AsyncService {
         wsRequestDomain?: string | string[],
         uploadDomain?: string | string[],
         downloadDomain?: string | string[]
-    ): Promise<WxaServerUriReceipt>;
+    ): Promise<inf.WxaServerUriReceipt>;
 
     async wxaClientServerUriOperations(
         clientAccessToken: string,
@@ -747,19 +703,19 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaServerUriReceipt;
+        return result as inf.WxaServerUriReceipt;
     }
 
 
     async wxaWebViewWhitelistOperations(
         clientAccessToken: string,
         action?: 'get'
-    ): Promise<WxaWebViewWhitelistReceipt>;
+    ): Promise<inf.WxaWebViewWhitelistReceipt>;
     async wxaWebViewWhitelistOperations(
         clientAccessToken: string,
         action: 'add' | 'delete' | 'set',
         webviewDomainWhitelist?: string | string[]
-    ): Promise<WxaWebViewWhitelistReceipt>;
+    ): Promise<inf.WxaWebViewWhitelistReceipt>;
 
 
     async wxaWebViewWhitelistOperations(
@@ -786,7 +742,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaWebViewWhitelistReceipt;
+        return result as inf.WxaWebViewWhitelistReceipt;
     }
 
     async wxaGetAccountInfo(clientAccessToken: string) {
@@ -795,7 +751,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaAccountInfoReceipt;
+        return result as inf.WxaAccountInfoReceipt;
     }
 
     async wxaNameModificationPersonal(clientAccessToken: string, idCardMediaId: string, ...otherMediaIds: string[]) {
@@ -812,7 +768,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaNamingReceipt;
+        return result as inf.WxaNamingReceipt;
     }
 
     async wxaNameModificationOrganizational(clientAccessToken: string, licenseMediaId: string, ...otherMediaIds: string[]) {
@@ -829,7 +785,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaNamingReceipt;
+        return result as inf.WxaNamingReceipt;
     }
 
     async wxaNamingStatus(clientAccessToken: string, auditId: string) {
@@ -839,7 +795,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaNamingConditionQueryReceipt;
+        return result as inf.WxaNamingConditionQueryReceipt;
     }
 
     async wxaNamingPrecheck(clientAccessToken: string, name: string) {
@@ -853,7 +809,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaNamingPrecheckReceipt;
+        return result as inf.WxaNamingPrecheckReceipt;
     }
 
     async wxaModifyAvatar(clientAccessToken: string, avatarMediaId: string, x1: number, y1: number, x2: number, y2: number) {
@@ -866,7 +822,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaModifyDescription(clientAccessToken: string, newDescription: string) {
@@ -880,7 +836,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     wxoProposeAdminRebind(clientId: string, redirectUri: string) {
@@ -899,7 +855,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoGetAllPossibleCategories(clientAccessToken: string) {
@@ -908,7 +864,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetAllCategoriesReceipt;
+        return result as inf.WxaGetAllCategoriesReceipt;
     }
 
     async wxoAddCategories(
@@ -921,7 +877,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoRemoveCategory(
@@ -935,7 +891,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoModifyCategory(
@@ -948,7 +904,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoGetCurrentCategories(clientAccessToken: string) {
@@ -957,7 +913,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetCurrentCategoriesReceipt;
+        return result as inf.WxaGetCurrentCategoriesReceipt;
     }
 
     async wxaBindTester(clientAccessToken: string, testerId: string) {
@@ -971,7 +927,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaBindTesterReceipt;
+        return result as inf.WxaBindTesterReceipt;
     }
 
     async wxaUnbindTester(clientAccessToken: string, userStr: string) {
@@ -985,7 +941,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaGetAllTesters(clientAccessToken: string) {
@@ -999,7 +955,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaGetAllTestersReceipt;
+        return result as inf.WxaGetAllTestersReceipt;
     }
 
     async wxaCodeCommit(
@@ -1021,7 +977,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaBetaQR(clientAccessToken: string, path: string = '') {
@@ -1076,7 +1032,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaCodeCategoriesReceipt;
+        return result as inf.WxaCodeCategoriesReceipt;
     }
 
     async wxaListPages(clientAccessToken: string) {
@@ -1087,7 +1043,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaListPagesReceipt;
+        return result as inf.WxaListPagesReceipt;
     }
 
     async wxaSubmitAudition(
@@ -1114,7 +1070,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaSubmitReceipt;
+        return result as inf.WxaSubmitReceipt;
     }
 
 
@@ -1125,7 +1081,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaCheckAuditionStatusReceipt;
+        return result as inf.WxaCheckAuditionStatusReceipt;
     }
 
     async wxaGetLatestCodeAuditionStatus(clientAccessToken: string) {
@@ -1134,7 +1090,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaCheckLatestAuditionStatusReceipt;
+        return result as inf.WxaCheckLatestAuditionStatusReceipt;
     }
 
     async wxaRelease(clientAccessToken: string) {
@@ -1144,7 +1100,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaSetProductionVersionVisibility(clientAccessToken: string, visible: boolean) {
@@ -1156,7 +1112,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaCodeRevert(clientAccessToken: string) {
@@ -1167,7 +1123,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaGetAPISupportage(clientAccessToken: string) {
@@ -1179,7 +1135,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaAPISupportageReceipt;
+        return result as inf.WxaAPISupportageReceipt;
     }
 
     async wxaSetMinimalAPIVersion(clientAccessToken: string, version: string) {
@@ -1193,7 +1149,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoQRCodeReferenceRuleOperations(
@@ -1217,7 +1173,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoGetAllQRReferenceRules(clientAccessToken: string) {
@@ -1227,7 +1183,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaQRReferenceReceipt;
+        return result as inf.WxaQRReferenceReceipt;
     }
 
     async wxoGetVerificationFile(clientAccessToken: string) {
@@ -1237,7 +1193,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaVerificationFileReceipt;
+        return result as inf.WxaVerificationFileReceipt;
     }
 
     async wxoPublishQRReference(clientAccessToken: string, prefix: string) {
@@ -1247,7 +1203,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaUndoCodeSubmit(clientAccessToken: string) {
@@ -1256,7 +1212,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaGrayscaleRelease(clientAccessToken: string, percentage: number) {
@@ -1266,7 +1222,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaRevertGrayscaleRelease(clientAccessToken: string) {
@@ -1275,7 +1231,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaGetGrayscaleReleaseStatus(clientAccessToken: string) {
@@ -1284,7 +1240,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGrayScaleStatusReceipt;
+        return result as inf.WxaGrayScaleStatusReceipt;
     }
 
     async wxaGetAllCodeDrafts(pComponentAccessToken?: string) {
@@ -1297,7 +1253,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: componentAccessToken }
         );
 
-        return result as WxaGetAllCodeDraftsReceipt;
+        return result as inf.WxaGetAllCodeDraftsReceipt;
     }
 
     async wxaGetAllCodeTemplates(pComponentAccessToken?: string) {
@@ -1310,7 +1266,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: componentAccessToken }
         );
 
-        return result as WxaGetAllCodeTemplatesReceipt;
+        return result as inf.WxaGetAllCodeTemplatesReceipt;
     }
 
     async wxaComposeCodeTemplate(draftId: number, pComponentAccessToken?: string) {
@@ -1324,7 +1280,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: componentAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaRemoveFromCodeTemplate(templateId: number, pComponentAccessToken?: string) {
@@ -1338,7 +1294,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: componentAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
 
@@ -1359,7 +1315,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaLoginReceipt;
+        return result as inf.WxaLoginReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -1378,7 +1334,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaLoginReceipt;
+        return result as inf.WxaLoginReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
@@ -1397,7 +1353,7 @@ export class WxPlatformService extends AsyncService {
             }
         );
 
-        return result as WxaLoginReceipt;
+        return result as inf.WxaLoginReceipt;
     }
 
     async wxoListAllPublicMessageTemplates(clientAccessToken: string, offset = 0, count = 5) {
@@ -1407,7 +1363,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetAllMessageComponentsReceipt;
+        return result as inf.WxaGetAllMessageComponentsReceipt;
     }
 
     async wxoGetSinglePublicMessageTemplate(clientAccessToken: string, componentId: string) {
@@ -1417,7 +1373,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetMessageComponentReceipt;
+        return result as inf.WxaGetMessageComponentReceipt;
     }
 
     async wxoComposeCustomMessageTemplate(clientAccessToken: string, componentId: string, ...keywordIds: number[]) {
@@ -1430,7 +1386,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaComposeMessageTemplateReceipt;
+        return result as inf.WxaComposeMessageTemplateReceipt;
     }
 
     async wxoGetAllCustomMessageTemplates(clientAccessToken: string, offset = 0, count = 20) {
@@ -1440,7 +1396,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetAllMessageTemplatesReceipt;
+        return result as inf.WxaGetAllMessageTemplatesReceipt;
     }
 
     async wxoRemoveSingleCustomMessageTemplate(clientAccessToken: string, templateId: string) {
@@ -1450,7 +1406,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoSendTemplateMessage(
@@ -1480,7 +1436,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoCreateAccountAndBindMiniProgram(clientAccessToken: string, appId: string) {
@@ -1490,7 +1446,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxoAccountOpsWithAppIdReceipt;
+        return result as inf.WxoAccountOpsWithAppIdReceipt;
     }
 
     async wxoBindMiniProgram(clientAccessToken: string, appId: string, wxoId: string) {
@@ -1500,7 +1456,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxoUnbindMiniProgram(clientAccessToken: string, appId: string, wxoId: string) {
@@ -1510,7 +1466,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaGetBoundOpenPlatformAccount(clientAccessToken: string, appId: string) {
@@ -1520,7 +1476,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxoAccountOpsWithAppIdReceipt;
+        return result as inf.WxoAccountOpsWithAppIdReceipt;
     }
 
     async wxaForbidBeingSearched(clientAccessToken: string, disallowPresenceInSearch = false) {
@@ -1530,7 +1486,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaCheckSearchPreference(clientAccessToken: string) {
@@ -1539,7 +1495,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetCurrentSearchPreferenceReceipt;
+        return result as inf.WxaGetCurrentSearchPreferenceReceipt;
     }
 
 
@@ -1550,7 +1506,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaListInstalledPlugin(clientAccessToken: string) {
@@ -1560,7 +1516,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WxaGetPluginsReceipt;
+        return result as inf.WxaGetPluginsReceipt;
     }
 
     async wxaUninstallPlugin(clientAccessToken: string, pluginId: string) {
@@ -1570,7 +1526,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
     async wxaAnalysisDailySummaryTrend(clientAccessToken: string, beginDate: string, endDate: string) {
@@ -1717,7 +1673,7 @@ export class WxPlatformService extends AsyncService {
             { access_token: clientAccessToken }
         );
 
-        return result as WeChatErrorReceipt;
+        return result as inf.WeChatErrorReceipt;
     }
 
 
@@ -1758,7 +1714,7 @@ export class WxPlatformService extends AsyncService {
             throw err;
         }
 
-        return rBody as WeChatMediaUploadReceipt;
+        return rBody as inf.WeChatMediaUploadReceipt;
     }
 
     @retry(MAX_TRIES_TWO, RETRY_INTERVAL_MS)
