@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 
-import { AsyncService } from "tskit";
+import { AsyncService } from "@naiverlabs/tskit";
 import { container, singleton } from "tsyringe";
 import { WxaAccessTokenAgent } from './house-keeping/wxa-access-token';
 

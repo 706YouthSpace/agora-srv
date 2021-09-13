@@ -1,4 +1,4 @@
-import { RPCHost } from "tskit";
+import { RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
 import { Pick, RPCMethod } from "./civi-rpc";

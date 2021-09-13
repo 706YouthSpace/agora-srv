@@ -1,4 +1,4 @@
-import { ResourceNotFoundError, RPCHost } from "tskit";
+import { ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
 import { Pick, RPCMethod } from "./civi-rpc";

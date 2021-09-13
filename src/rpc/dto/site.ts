@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { Prop, RPCParam } from "tskit"
+import { Prop, RPCParam } from "@naiverlabs/tskit"
 import { URL } from "url";
 
 export enum SITE_TYPE {

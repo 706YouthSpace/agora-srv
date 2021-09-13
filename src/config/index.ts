@@ -1,4 +1,4 @@
-import { AsyncService } from 'tskit';
+import { AsyncService } from '@naiverlabs/tskit';
 import { singleton } from 'tsyringe';
 
 import dev from './dev';

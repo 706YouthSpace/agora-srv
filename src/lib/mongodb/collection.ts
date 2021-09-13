@@ -1,5 +1,5 @@
 import { Collection } from "mongodb";
-import { AsyncService } from "tskit";
+import { AsyncService } from "@naiverlabs/tskit";
 import { AbstractMongoDB } from "./client";
 
 

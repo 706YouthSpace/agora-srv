@@ -1,4 +1,4 @@
-import { SaltedHashManager } from 'tskit';
+import { SaltedHashManager } from '@naiverlabs/tskit';
 import config from '../config';
 import { UrlSignatureManager } from '../lib/url-signature';
 

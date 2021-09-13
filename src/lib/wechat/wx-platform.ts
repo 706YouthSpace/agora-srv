@@ -56,7 +56,7 @@ import { retry } from '../retry-decorator';
 import { Readable } from 'stream';
 import { CodeLogicError, ApplicationError } from '../errors';
 import { singleton } from 'tsyringe';
-import { AsyncService } from 'tskit';
+import { AsyncService } from '@naiverlabs/tskit';
 import { Config } from '../../config';
 
 const WX_API_BASE_URI = 'https://api.weixin.qq.com';

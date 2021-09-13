@@ -1,4 +1,4 @@
-import { AsyncService } from "tskit";
+import { AsyncService } from "@naiverlabs/tskit";
 import { container, singleton } from "tsyringe";
 import { GB2260RPCHost } from "./gb2260";
 import { MiscRPCHost } from "./misc";

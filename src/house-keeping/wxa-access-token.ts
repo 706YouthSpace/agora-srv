@@ -1,6 +1,6 @@
 import { Config } from "../config";
 import { HouseKeeperMongoConfig } from "../db/house-keeper-config";
-import { AsyncService, retry } from "tskit";
+import { AsyncService, retry } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { WxConfig, WxPlatformService } from "../lib/wechat/wx-platform";
 import { ChangeStreamDocument } from "mongodb";

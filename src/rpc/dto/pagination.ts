@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { RPCParam, Prop, assignMeta } from 'tskit';
+import { Prop, assignMeta, Dto } from '@naiverlabs/tskit';
 
 
 const pageSizeLimits = (input: number) => {
@@ -29,7 +29,7 @@ const pageIndexLimits = (input: number) => {
     return true;
 };
 
-export class Pagination extends RPCParam {
+export class Pagination extends Dto {
 
     @Prop({ default: 20, validate: pageSizeLimits })
     pageSize!: number;

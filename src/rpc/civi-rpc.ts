@@ -1,4 +1,4 @@
-import { makeRPCKit } from "tskit";
+import { makeRPCKit } from "@naiverlabs/tskit";
 import { container } from "tsyringe";
 
 const RPCRegistry = makeRPCKit(container);

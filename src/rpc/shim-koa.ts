@@ -1,6 +1,6 @@
 import { Context } from "koa";
 import { Readable } from "stream";
-import { RPC_CALL_ENVIROMENT, ApplicationError, extractMeta } from "tskit";
+import { RPC_CALL_ENVIROMENT, ApplicationError, extractMeta } from "@naiverlabs/tskit";
 import { rPCRegistry } from "./civi-rpc";
 
 import stuff from './loader';

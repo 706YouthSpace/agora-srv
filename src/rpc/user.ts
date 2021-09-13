@@ -1,5 +1,5 @@
 import { MongoConfig } from "../db/config";
-import { RPCHost } from "tskit";
+import { RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { WxPlatformService } from "../lib/wechat/wx-platform";
 import { Config } from "../config";

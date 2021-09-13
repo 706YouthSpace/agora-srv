@@ -2,7 +2,7 @@ import { MongoHandle } from "../lib/mongodb/collection";
 import { vectorize } from "../lib/simple-tools";
 import _ from "lodash";
 import { ObjectId, Document } from "mongodb";
-import { deepCreate } from "tskit";
+import { deepCreate } from "@naiverlabs/tskit";
 import { MongoDB } from "./client";
 import { InjectProperty } from "../lib/property-injector";
 

@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { HashManager } from 'tskit';
+import { HashManager } from '@naiverlabs/tskit';
 
 
 export class UrlSignatureManager {

@@ -1,6 +1,6 @@
 import { MongoSession } from "../../db/session";
 import { ObjectId } from "mongodb";
-import { RPCParam, Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta } from "tskit";
+import { Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta, Dto } from "@naiverlabs/tskit";
 import { autoInjectable } from 'tsyringe';
 import { decodeBase64UrlSafe, encodeBase64UrlSafe } from "../../lib/binary";
 import { isIPv4 } from "net";
@@ -56,10 +56,10 @@ export interface ContextLike {
 
 
 @autoInjectable()
-export class Session extends RPCParam<ContextLike> {
+export class Session extends Dto<ContextLike> {
 
-    static fromObject(input: object) {
-        const parsed = super.fromObject(input) as Session;
+    static from(input: object) {
+        const parsed = super.from(input) as Session;
         if (!parsed.sessionToken) {
             const sessionTokenText = parsed[RPC_CALL_ENVIROMENT]?.get(SESSION_TOKEN_HEADER_NAME) || parsed[RPC_CALL_ENVIROMENT]?.cookies?.get(SESSION_TOKEN_COOKIE_NAME);
 

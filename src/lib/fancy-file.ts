@@ -6,7 +6,7 @@ import { open, write, stat, Stats, close, unlink, createReadStream, createWriteS
 import { basename, extname } from 'path';
 
 import { Defer, Deferred } from './defer';
-import { HashManager } from 'tskit';
+import { HashManager } from '@naiverlabs/tskit';
 import { mimeOf, MIMEVec, parseContentType } from './mime';
 
 // tslint:disable-next-line:no-magic-numbers

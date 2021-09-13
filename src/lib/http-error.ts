@@ -1,4 +1,4 @@
-import { objHashMd5B64Of } from 'tskit';
+import { objHashMd5B64Of } from '@naiverlabs/tskit';
 
 // tslint:disable:no-magic-numbers
 

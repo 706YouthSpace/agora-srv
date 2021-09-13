@@ -95,7 +95,7 @@ export async function injectRESTUtilsMiddleware(_ctx: Context, next: () => Promi
 
     try {
         await next();
-    } catch (err) {
+    } catch (err: any) {
         if (err instanceof HTTPError) {
             const exportedError = err.toObject();
             const toBeReturned: any = exportedError;
