@@ -67,7 +67,7 @@ export class DraftSite extends RPCParam {
 
     @Prop({
         arrayOf: Number,
-        validate: wxGcj02LongitudeLatitude
+        validateArray: wxGcj02LongitudeLatitude
     })
     locationCoord?: [number, number];
 

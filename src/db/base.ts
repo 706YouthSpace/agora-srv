@@ -12,14 +12,20 @@ export abstract class MongoCollection<T extends Document, P = ObjectId> extends 
 
     typeclass: undefined;
 
-    async get(_id: P) {
-        const r = await this.collection.findOne({ _id });
+    async getForModifaction(_id: P) {
+        const r = await this.get(_id);
 
         if (!r) {
             return r;
         }
 
         return deepCreate(r);
+    }
+
+    async get(_id: P) {
+        const r = await this.collection.findOne({ _id });
+
+        return r;
     }
 
     async create(data: Partial<T>) {

@@ -108,7 +108,7 @@ export class Session extends Dto<ContextLike> {
 
         await this.mongoSession.serviceReady();
 
-        this.data = await this.mongoSession.get(this.sessionId) || {};
+        this.data = await this.mongoSession.getForModifaction(this.sessionId) || {};
 
         return this.data as { [k: string]: any };
     }

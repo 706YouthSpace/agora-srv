@@ -67,13 +67,12 @@ export class SiteRPCHost extends RPCHost {
         @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
         @Pick('location') locaitonText?: string,
         @Pick('locationGB2260') locaitonGB2260?: string,
-        @Pick('locationNear', { arrayOf: Number, validate: wxGcj02LongitudeLatitude })
+        @Pick('locationNear', { arrayOf: Number, validateArray: wxGcj02LongitudeLatitude })
         locationNear?: [number, number],
         @Pick('distance', { arrayOf: Number, validate: (x: number) => x > 0 })
         distance?: number,
         @Pick('tags', { arrayOf: String }) tags?: string[]
     ) {
-
         const query: any = {};
 
         if (name) {
@@ -111,7 +110,6 @@ export class SiteRPCHost extends RPCHost {
         if (pagination.getAnchor()) {
             query.updatedAt = { $lt: pagination.getAnchor() };
         }
-
         const result = await this.mongoSite.collection.find(query)
             .sort({ updatedAt: -1 })
             .skip(pagination.getSkip())
