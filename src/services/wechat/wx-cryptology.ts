@@ -1,4 +1,12 @@
-import { createCipheriv, createDecipheriv, randomFillSync, createHash } from 'crypto';
+import {
+    createCipheriv, createDecipheriv,
+    randomFillSync, createHash,
+    createSign, KeyObject,
+    constants as cryptoConstants,
+    publicEncrypt, privateDecrypt, createVerify
+} from 'crypto';
+
+const RSA_PKCS1_OAEP_PADDING = cryptoConstants.RSA_PKCS1_OAEP_PADDING;
 
 const WECHAT_MINIPROGRAM_CRYPTOLOGY_ALGORITHM = 'aes-128-cbc';
 const WECHAT_OPENPLATFORM_CRYPTOLOGY_ALGORITHM = 'aes-256-cbc';
@@ -173,4 +181,87 @@ export function wxMiniProgramSignatureSha1(data: string, sessionKey: string) {
     const digestedHexString = sha1Hash.digest('hex');
 
     return digestedHexString;
+}
+
+
+export function wxPayDecryptAEAD(data: Buffer, key: Buffer, iv: Buffer, assocData: Buffer) {
+    // As of Sep. 2021, WxPay AEAD means AEAD_AES_256_GCM
+
+    const tagLength = 16;
+
+    const decipher = createDecipheriv('aes-256-gcm', key, iv, {
+        authTagLength: tagLength
+    });
+
+    const authTag = data.slice(-tagLength);
+
+    decipher.setAutoPadding(true);
+    decipher.setAuthTag(authTag);
+    decipher.setAAD(assocData);
+
+    const buff1 = decipher.update(data);
+
+    const buff2 = decipher.final();
+
+    return Buffer.concat([buff1, buff2]);
+}
+
+export interface WxPayAEADEncryptedJSONObject {
+    algorithm: 'AEAD_AES_256_GCM' | string;
+    nonce: string;
+    associated_data: string;
+    ciphertext: string;
+    original_type?: 'transaction' | string;
+}
+
+export function wxPayDecryptJSONObject(obj: WxPayAEADEncryptedJSONObject, key: Buffer) {
+    if (obj.algorithm !== 'AEAD_AES_256_GCM') {
+        throw new Error('Unsupported algorithm, what year is it ?');
+    }
+
+    const r = JSON.parse(
+        wxPayDecryptAEAD(
+            Buffer.from(obj.ciphertext, 'base64'),
+            key,
+            Buffer.from(obj.nonce, 'utf-8'),
+            Buffer.from(obj.associated_data, 'utf-8')
+        ).toString()
+    );
+
+    if (typeof r === 'object') {
+        r['original_type'] = obj.original_type;
+    }
+
+    return r;
+}
+
+
+export function wxPaySign(data: Buffer, key: KeyObject) {
+// As of Sep. 2021, WxPay APIv3 Sign means WECHATPAY2-SHA256-RSA2048
+
+    const sign = createSign('sha256');
+
+    sign.update(data);
+
+    const signature = sign.sign(key);
+
+    return signature;
+}
+
+
+export function wxPayOAEPDecrypt(data: Buffer, key: KeyObject) {
+    return privateDecrypt({ key, padding: RSA_PKCS1_OAEP_PADDING }, data);
+}
+
+export function wxPayOAEPEncrypt(data: Buffer, key: KeyObject) {
+    return publicEncrypt({ key, padding: RSA_PKCS1_OAEP_PADDING }, data);
+}
+
+export function wxPayRSASha256Vefify(data:Buffer, pubKey: KeyObject, signature: Buffer) {
+
+    const verify = createVerify('sha256');
+
+    verify.update(data);
+
+    return verify.verify(pubKey, signature);
 }

@@ -12,10 +12,10 @@
   "author": "yanlong.wang@naiver.org",
   "license": "AGPL-3.0",
   "engines": {
-    "node": ">=14.13.0"
+    "node": ">=16.0.0"
   },
   "dependencies": {
-    "@naiverlabs/tskit": "^0.1.1-147aa34",
+    "@naiverlabs/tskit": "^0.1.1-e78cacc",
     "ali-oss": "^6.1.1",
     "base62": "^2.0.1",
     "busboy": "^0.3.1",
@@ -37,6 +37,7 @@
     "mmmagic": "^0.5.3",
     "moment": "^2.24.0",
     "mongodb": "^4.1.0",
+    "node-fetch": "^2.6.2",
     "node-object-hash": "^1.4.2",
     "nodejieba": "^2.5.2",
     "redlock": "^4.0.0",
@@ -67,7 +68,8 @@
     "@types/lru-cache": "^5.1.0",
     "@types/mmmagic": "^0.4.29",
     "@types/mongodb": "^4.0.7",
-    "@types/node": "^14",
+    "@types/node": "^16.9.1",
+    "@types/node-fetch": "^2.5.12",
     "@types/redlock": "^3.0.4",
     "@types/request": "^2.48.2",
     "@types/uuid": "^3.4.5",

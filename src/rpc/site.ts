@@ -46,7 +46,7 @@ export class SiteRPCHost extends RPCHost {
         const draftSite = {
             name: draft.name,
             type: draft.type,
-
+            tags: draft.tags,
             image: this.convertURLOrObjId(draft.image),
 
             images: draft.images?.map((x) => this.convertURLOrObjId(x)!).filter(Boolean),
