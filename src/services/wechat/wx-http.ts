@@ -39,7 +39,7 @@ export class WxHTTP extends HTTPService {
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getComponentAccessToken(appId: string, appSecret: string, componentVerifyTicket: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoComponentAccessTokenReceipt>(
             '/cgi-bin/component/api_component_token', undefined,
             {
                 component_appid: appId,
@@ -48,12 +48,12 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoComponentAccessTokenReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getAccessToken(appId: string, appSecret: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxoAccessTokenReceipt>(
             '/cgi-bin/token',
             {
                 appid: appId,
@@ -62,13 +62,13 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoAccessTokenReceipt;
+        return result.data;
     }
 
 
     async getPreAuthCode(componentAppId: string, componentAccessToken: string) {
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoPreAuthCodeReceipt>(
             '/cgi-bin/component/api_create_preauthcode',
             { component_access_token: componentAccessToken },
             {
@@ -76,13 +76,13 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoPreAuthCodeReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getClientAccessToken(componentAppId: string, clientAuthorizationCode: string, componentAccessToken: string) {
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoClientAuthorizationReceipt>(
             '/cgi-bin/component/api_query_auth',
             { component_access_token: componentAccessToken },
             {
@@ -91,7 +91,7 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoClientAuthorizationReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
@@ -100,7 +100,7 @@ export class WxHTTP extends HTTPService {
         clientAppId: string, clientRefreshToken: string, componentAccessToken: string
     ) {
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoClientAuthorizationTokenRefreshReceipt>(
             '/cgi-bin/component/api_authorizer_token',
             { component_access_token: componentAccessToken },
             {
@@ -110,14 +110,14 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoClientAuthorizationTokenRefreshReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getClientInfo(
         componentAppId: string,
         clientAppId: string, componentAccessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoClientInfoReceipt>(
             '/cgi-bin/component/api_get_authorizer_info',
             { component_access_token: componentAccessToken },
             {
@@ -126,13 +126,13 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoClientInfoReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getClientOption(
         componentAppId: string, clientAppId: string, optionName: string, componentAccessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoClientOptionReceipt>(
             '/cgi-bin/component/api_get_authorizer_option',
             { component_access_token: componentAccessToken },
             {
@@ -142,12 +142,12 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxoClientOptionReceipt;
+        return result.data;
     }
 
     async setClientOption(
         componentAppId: string, clientAppId: string, optionName: string, optionValue: string, componentAccessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/component/api_get_authorizer_option',
             { component_access_token: componentAccessToken },
             {
@@ -160,7 +160,7 @@ export class WxHTTP extends HTTPService {
 
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
@@ -219,7 +219,7 @@ export class WxHTTP extends HTTPService {
         const uploadDomain = Array.isArray(_uploadDomain) ? _uploadDomain : (_uploadDomain ? [_uploadDomain] : _uploadDomain);
         const downloadDomain = Array.isArray(_downloadDomain) ? _downloadDomain : (_downloadDomain ? [_downloadDomain] : _downloadDomain);
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaServerUriReceipt>(
             '/wxa/modify_domain',
             { access_token: accessToken },
             {
@@ -231,7 +231,7 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaServerUriReceipt;
+        return result.data;
     }
 
     async wxaWebViewWhitelistOperations(
@@ -263,23 +263,23 @@ export class WxHTTP extends HTTPService {
             queryBody.webviewdomain = webviewDomainWhitelist;
         }
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaWebViewWhitelistReceipt>(
             '/wxa/setwebviewdomain',
             { access_token: accessToken },
             queryBody
         );
 
-        return result as inf.WxaWebViewWhitelistReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaGetAccountInfo(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaAccountInfoReceipt>(
             '/cgi-bin/account/getaccountbasicinfo',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaAccountInfoReceipt;
+        return result.data;
     }
 
     async wxaNameModificationPersonal(accessToken: string, idCardMediaId: string, ...otherMediaIds: string[]) {
@@ -287,7 +287,7 @@ export class WxHTTP extends HTTPService {
             return [`naming_other_stuff_${indx + 1}`, mediaId];
         }).zipObjectDeep().value() || {};
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaNamingReceipt>(
             '/wxa/setnickname',
             { access_token: accessToken },
             {
@@ -296,7 +296,7 @@ export class WxHTTP extends HTTPService {
             },
         );
 
-        return result as inf.WxaNamingReceipt;
+        return result.data;
     }
 
     async wxaNameModificationOrganizational(accessToken: string, licenseMediaId: string, ...otherMediaIds: string[]) {
@@ -304,7 +304,7 @@ export class WxHTTP extends HTTPService {
             return [`naming_other_stuff_${indx + 1}`, mediaId];
         }).zipObjectDeep().value() || {};
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaNamingReceipt>(
             '/wxa/setnickname',
             { access_token: accessToken },
             {
@@ -313,21 +313,21 @@ export class WxHTTP extends HTTPService {
             },
         );
 
-        return result as inf.WxaNamingReceipt;
+        return result.data;
     }
 
     async wxaNamingStatus(accessToken: string, auditId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaNamingConditionQueryReceipt>(
             '/wxa/api_wxa_querynickname',
             { access_token: accessToken },
             { auidit_id: auditId },
         );
 
-        return result as inf.WxaNamingConditionQueryReceipt;
+        return result.data;
     }
 
     async wxaNamingPrecheck(accessToken: string, name: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaNamingPrecheckReceipt>(
             '/cgi-bin/wxverify/checkwxverifynickname',
             {
                 nick_name: name
@@ -337,11 +337,11 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaNamingPrecheckReceipt;
+        return result.data;
     }
 
     async wxaModifyAvatar(accessToken: string, avatarMediaId: string, x1: number, y1: number, x2: number, y2: number) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/account/modifyheadimage',
             { access_token: accessToken },
             {
@@ -350,11 +350,11 @@ export class WxHTTP extends HTTPService {
             },
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaModifyDescription(accessToken: string, newDescription: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/account/modifysignature',
             {
                 access_token: accessToken
@@ -364,7 +364,7 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     wxoProposeAdminRebind(componentAppId: string, clientId: string, redirectUri: string) {
@@ -373,7 +373,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaCompleteAdminRebind(accessToken: string, taskId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/account/componentrebindadmin',
             {
                 access_token: accessToken
@@ -383,29 +383,29 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoGetAllPossibleCategories(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaGetAllCategoriesReceipt>(
             '/cgi-bin/wxopen/getallcategories',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaGetAllCategoriesReceipt;
+        return result.data;
     }
 
     async wxoAddCategories(
         accessToken: string,
         categories: Array<{ first: number; second: number; certicates: Array<{ key: string; value: string }> }>
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/addcategory',
             { categories },
             { access_token: accessToken }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoRemoveCategory(
@@ -413,39 +413,39 @@ export class WxHTTP extends HTTPService {
         firstId: number,
         secondId: number
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/deletecategory',
             { access_token: accessToken },
             { first: firstId, second: secondId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoModifyCategory(
         accessToken: string,
         category: { first: number; second: number; certicates: Array<{ key: string; value: string }> }
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/modifycategory',
             { access_token: accessToken },
             { ...category }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoGetCurrentCategories(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaGetCurrentCategoriesReceipt>(
             '/cgi-bin/wxopen/getcategory',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaGetCurrentCategoriesReceipt;
+        return result.data;
     }
 
     async wxaBindTester(accessToken: string, testerId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaBindTesterReceipt>(
             '/wxa/bind_tester',
             {
                 access_token: accessToken
@@ -455,11 +455,11 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaBindTesterReceipt;
+        return result.data;
     }
 
     async wxaUnbindTester(accessToken: string, userStr: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/unbind_tester',
             {
                 access_token: accessToken
@@ -469,11 +469,11 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaGetAllTesters(accessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaGetAllTestersReceipt>(
             '/wxa/memberauth',
             {
                 access_token: accessToken
@@ -483,7 +483,7 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaGetAllTestersReceipt;
+        return result.data;
     }
 
     async wxaCodeCommit(
@@ -492,7 +492,7 @@ export class WxHTTP extends HTTPService {
         extJson: object = {},
         userVersion: string = '', userDesc: string = ''
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/commit',
             {
                 template_id: templateId,
@@ -505,11 +505,11 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaBetaQR(accessToken: string, path: string = '') {
-        const result = await this.get(
+        const result = await this.get<Buffer>(
             '/wxa/get_qrcode',
             {
                 access_token: accessToken,
@@ -518,7 +518,7 @@ export class WxHTTP extends HTTPService {
             { responseType: "buffer" }
         );
 
-        return result as Buffer;
+        return result.data;
     }
 
 
@@ -534,7 +534,7 @@ export class WxHTTP extends HTTPService {
         };
         isHyaline?: boolean;
     }) {
-        const result = await this.postJson(
+        const result = await this.postJson<Buffer>(
             'wxa/getwxacodeunlimit',
             {
                 access_token: accessToken
@@ -549,29 +549,29 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as Buffer;
+        return result.data;
     }
 
     async wxaGetAvailableCategories(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaCodeCategoriesReceipt>(
             '/wxa/get_category',
             {
                 access_token: accessToken
             }
         );
 
-        return result as inf.WxaCodeCategoriesReceipt;
+        return result.data;
     }
 
     async wxaListPages(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaListPagesReceipt>(
             '/wxa/get_page',
             {
                 access_token: accessToken
             }
         );
 
-        return result as inf.WxaListPagesReceipt;
+        return result.data;
     }
 
     async wxaSubmitAudition(
@@ -588,7 +588,7 @@ export class WxHTTP extends HTTPService {
             title: string;
         }>
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaSubmitReceipt>(
             '/wxa/submit_audit',
             {
                 access_token: accessToken
@@ -598,40 +598,40 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaSubmitReceipt;
+        return result.data;
     }
 
     async wxaGetCodeAuditionStatus(accessToken: string, auditId: string | number) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaCheckAuditionStatusReceipt>(
             '/wxa/get_auditstatus',
             { access_token: accessToken },
             { auditid: parseInt(auditId as any, 10) }
         );
 
-        return result as inf.WxaCheckAuditionStatusReceipt;
+        return result.data;
     }
 
     async wxaGetLatestCodeAuditionStatus(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaCheckLatestAuditionStatusReceipt>(
             '/wxa/get_latest_auditstatus',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaCheckLatestAuditionStatusReceipt;
+        return result.data;
     }
 
     async wxaRelease(accessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/release',
             { access_token: accessToken },
             {}
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaSetProductionVersionVisibility(accessToken: string, visible: boolean) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/change_visitstatus',
             { access_token: accessToken },
             {
@@ -639,22 +639,22 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaCodeRevert(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WeChatErrorReceipt>(
             '/wxa/revertcoderelease',
             {
                 access_token: accessToken
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaGetAPISupportage(accessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaAPISupportageReceipt>(
             '/cgi-bin/wxopen/getweappsupportversion',
             {
                 access_token: accessToken
@@ -662,11 +662,11 @@ export class WxHTTP extends HTTPService {
             {}
         );
 
-        return result as inf.WxaAPISupportageReceipt;
+        return result.data;
     }
 
     async wxaSetMinimalAPIVersion(accessToken: string, version: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/setweappsupportversion',
             {
                 access_token: accessToken
@@ -676,7 +676,7 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoQRCodeReferenceRuleOperations(
@@ -690,7 +690,7 @@ export class WxHTTP extends HTTPService {
             is_edit: 0 | 1;
         }
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/qrcodejumpadd',
             {
                 access_token: accessToken
@@ -700,119 +700,119 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoGetAllQRReferenceRules(accessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaQRReferenceReceipt>(
             '/cgi-bin/wxopen/qrcodejumpget',
             { access_token: accessToken },
             {}
         );
 
-        return result as inf.WxaQRReferenceReceipt;
+        return result.data;
     }
 
     async wxoGetVerificationFile(accessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaVerificationFileReceipt>(
             '/cgi-bin/wxopen/qrcodejumpdownload',
             { access_token: accessToken },
             {}
         );
 
-        return result as inf.WxaVerificationFileReceipt;
+        return result.data;
     }
 
     async wxoPublishQRReference(accessToken: string, prefix: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/qrcodejumppublish',
             { access_token: accessToken },
             { prefix }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaUndoCodeSubmit(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WeChatErrorReceipt>(
             '/wxa/undocodeaudit',
             { access_token: accessToken }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaGrayscaleRelease(accessToken: string, percentage: number) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/grayrelease',
             { access_token: accessToken },
             { gray_percentage: percentage }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaRevertGrayscaleRelease(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WeChatErrorReceipt>(
             '/wxa/revertgrayrelease',
             { access_token: accessToken }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaGetGrayscaleReleaseStatus(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaGrayScaleStatusReceipt>(
             '/wxa/getgrayreleaseplan',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaGrayScaleStatusReceipt;
+        return result.data;
     }
 
     async wxaGetAllCodeDrafts(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaGetAllCodeDraftsReceipt>(
             '/wxa/gettemplatedraftlist',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaGetAllCodeDraftsReceipt;
+        return result.data;
     }
 
     async wxaGetAllCodeTemplates(accessToken?: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaGetAllCodeTemplatesReceipt>(
             '/wxa/gettemplatelist',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaGetAllCodeTemplatesReceipt;
+        return result.data;
     }
 
     async wxaComposeCodeTemplate(accessToken: string, draftId: number) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/addtotemplate',
             { access_token: accessToken },
             { draft_id: draftId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaRemoveFromCodeTemplate(accessToken: string, templateId: number) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/deletetemplate',
             { access_token: accessToken },
             { template_id: templateId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaExchangeForSessionKey(
         componentAppId: string, componentAccessToken: string, appId: string, code: string) {
 
-        const result = await this.get(
+        const result = await this.get<inf.WxaLoginReceipt>(
             '/sns/component/jscode2session',
             {
                 appid: appId,
@@ -823,13 +823,13 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaLoginReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaLogin(code: string, appId: string, appSecret: string) {
 
-        const result = await this.get(
+        const result = await this.get<inf.WxaLoginReceipt>(
             '/sns/jscode2session',
             {
                 appid: appId,
@@ -839,13 +839,13 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaLoginReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaComponentLogin(code: string, appId: string, appSecret: string) {
 
-        const result = await this.get(
+        const result = await this.get<inf.WxaLoginReceipt>(
             '/sns/component/jscode2session',
             {
                 appid: appId,
@@ -855,31 +855,31 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaLoginReceipt;
+        return result.data;
     }
 
     async wxoListAllPublicMessageTemplates(accessToken: string, offset = 0, count = 5) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaGetAllMessageComponentsReceipt>(
             '/cgi-bin/wxopen/template/library/list',
             { access_token: accessToken },
             { offset, count }
         );
 
-        return result as inf.WxaGetAllMessageComponentsReceipt;
+        return result.data;
     }
 
     async wxoGetSinglePublicMessageTemplate(accessToken: string, componentId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaGetMessageComponentReceipt>(
             '/cgi-bin/wxopen/template/library/get',
             { access_token: accessToken },
             { id: componentId }
         );
 
-        return result as inf.WxaGetMessageComponentReceipt;
+        return result.data;
     }
 
     async wxoComposeCustomMessageTemplate(accessToken: string, componentId: string, ...keywordIds: number[]) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaComposeMessageTemplateReceipt>(
             '/cgi-bin/wxopen/template/add',
             { access_token: accessToken },
             {
@@ -888,27 +888,27 @@ export class WxHTTP extends HTTPService {
             }
         );
 
-        return result as inf.WxaComposeMessageTemplateReceipt;
+        return result.data;
     }
 
     async wxoGetAllCustomMessageTemplates(accessToken: string, offset = 0, count = 20) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaGetAllMessageTemplatesReceipt>(
             '/cgi-bin/wxopen/template/list',
             { access_token: accessToken },
             { offset, count }
         );
 
-        return result as inf.WxaGetAllMessageTemplatesReceipt;
+        return result.data;
     }
 
     async wxoRemoveSingleCustomMessageTemplate(accessToken: string, templateId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/template/del',
             { access_token: accessToken },
             { template_id: templateId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoSendTemplateMessage(
@@ -932,132 +932,126 @@ export class WxHTTP extends HTTPService {
         if (emphasizedKeyword) {
             qObj.emphasis_keyword = emphasizedKeyword;
         }
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/message/wxopen/template/send',
             { access_token: accessToken },
             qObj
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoCreateAccountAndBindMiniProgram(accessToken: string, appId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoAccountOpsWithAppIdReceipt>(
             '/cgi-bin/open/create',
             { access_token: accessToken },
             { appid: appId }
         );
 
-        return result as inf.WxoAccountOpsWithAppIdReceipt;
+        return result.data;
     }
 
     async wxoBindMiniProgram(accessToken: string, appId: string, wxoId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/open/bind',
             { access_token: accessToken },
             { appid: appId, open_appid: wxoId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxoUnbindMiniProgram(accessToken: string, appId: string, wxoId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/cgi-bin/open/unbind',
             { access_token: accessToken },
             { appid: appId, open_appid: wxoId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaGetBoundOpenPlatformAccount(accessToken: string, appId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxoAccountOpsWithAppIdReceipt>(
             '/cgi-bin/open/get',
             { access_token: accessToken },
             { appid: appId }
         );
 
-        return result as inf.WxoAccountOpsWithAppIdReceipt;
+        return result.data;
     }
 
     async wxaForbidBeingSearched(accessToken: string, disallowPresenceInSearch = false) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/changewxasearchstatus',
             { access_token: accessToken },
             { status: disallowPresenceInSearch ? 1 : 0 }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaCheckSearchPreference(accessToken: string) {
-        const result = await this.get(
+        const result = await this.get<inf.WxaGetCurrentSearchPreferenceReceipt>(
             '/wxa/getwxasearchstatus',
             { access_token: accessToken }
         );
 
-        return result as inf.WxaGetCurrentSearchPreferenceReceipt;
+        return result.data;
     }
 
 
     async wxaApplyForPlugin(accessToken: string, pluginId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/plugin',
             { access_token: accessToken },
             { action: 'apply', plugin_appid: pluginId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaListInstalledPlugin(accessToken: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WxaGetPluginsReceipt>(
             '/wxa/plugin',
             { access_token: accessToken },
             { action: 'list' }
         );
 
-        return result as inf.WxaGetPluginsReceipt;
+        return result.data;
     }
 
     async wxaUninstallPlugin(accessToken: string, pluginId: string) {
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             '/wxa/plugin',
             { access_token: accessToken },
             { action: 'unbind', plugin_appid: pluginId }
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async wxaAnalysisDailySummaryTrend(accessToken: string, beginDate: string, endDate: string) {
-        const result = await this.postJson(
-            '/datacube/getweanalysisappiddailysummarytrend',
-            { access_token: accessToken },
-            { begin_date: beginDate, end_date: endDate }
-        );
-
-        return result as {
+        const result = await this.postJson<{
             list: Array<{
                 ref_date: string;
                 visit_total: number;
                 share_pv: number;
                 share_uv: number;
-            }>;
-        };
+            }>
+        }>(
+            '/datacube/getweanalysisappiddailysummarytrend',
+            { access_token: accessToken },
+            { begin_date: beginDate, end_date: endDate }
+        );
+
+        return result.data;
     }
 
     async wxaAnalysisVisitTrend(
         clientAccessToken: string, beginDate: string, endDate: string,
         scale: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        const result = await this.postJson(
-            `/datacube/getweanalysisappid${scale}visittrend`,
-            { access_token: clientAccessToken },
-            { begin_date: beginDate, end_date: endDate }
-        );
-
-        return result as {
+        const result = await this.postJson<{
             list: Array<{
                 ref_date: string;
                 session_cnt: number;
@@ -1067,53 +1061,53 @@ export class WxHTTP extends HTTPService {
                 stay_time_session: number;
                 visit_depth: number;
             }>;
-        };
+        }>(
+            `/datacube/getweanalysisappid${scale}visittrend`,
+            { access_token: clientAccessToken },
+            { begin_date: beginDate, end_date: endDate }
+        );
+
+        return result.data;
     }
 
     async wxaAnalysisVisitDistribution(
         clientAccessToken: string, beginDate: string, endDate: string
     ) {
-        const result = await this.postJson(
-            `/datacube/getweanalysisappidvisitdistribution`,
-            { access_token: clientAccessToken },
-            { begin_date: beginDate, end_date: endDate }
-        );
-
-        return result as {
+        const result = await this.postJson<{
             ref_date: string;
             list: Array<{
                 index: string | 'access_source_session_cnt' | 'access_staytime_info' | 'access_depth_info';
                 item_list: Array<{ key: number; value: number; access_source_visit_uv: number }>;
             }>;
-        };
+        }>(
+            `/datacube/getweanalysisappidvisitdistribution`,
+            { access_token: clientAccessToken },
+            { begin_date: beginDate, end_date: endDate }
+        );
+
+        return result.data;
     }
 
     async wxaAnalysisRetainInfo(
         clientAccessToken: string, beginDate: string, endDate: string,
         scale: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        const result = await this.postJson(
+        const result = await this.postJson<{
+            ref_date: string;
+            visit_uv_new: Array<{ key: number; value: number }>;
+            visit_uv: Array<{ key: number; value: number }>;
+        }>(
             `/datacube/getweanalysisappiddaily${scale}retaininfo`,
             { access_token: clientAccessToken },
             { begin_date: beginDate, end_date: endDate }
         );
 
-        return result as {
-            ref_date: string;
-            visit_uv_new: Array<{ key: number; value: number }>;
-            visit_uv: Array<{ key: number; value: number }>;
-        };
+        return result.data;
     }
 
     async wxaAnalysisVisitPage(
         clientAccessToken: string, beginDate: string, endDate: string
     ) {
-        const result = await this.postJson(
-            `/datacube/getweanalysisappidvisitpage`,
-            { access_token: clientAccessToken },
-            { begin_date: beginDate, end_date: endDate }
-        );
-
-        return result as {
+        const result = await this.postJson<{
             ref_date: string;
             list: Array<{
                 page_path: string;
@@ -1125,7 +1119,13 @@ export class WxHTTP extends HTTPService {
                 page_share_pv: number;
                 page_share_uv: number;
             }>;
-        };
+        }>(
+            `/datacube/getweanalysisappidvisitpage`,
+            { access_token: clientAccessToken },
+            { begin_date: beginDate, end_date: endDate }
+        );
+
+        return result.data;
     }
 
     async wxaSendCustomerServiceMessage(
@@ -1169,13 +1169,13 @@ export class WxHTTP extends HTTPService {
             }
         }
 
-        const result = await this.postJson(
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
             `/cgi-bin/message/custom/send`,
             { access_token: clientAccessToken },
             qObj
         );
 
-        return result as inf.WeChatErrorReceipt;
+        return result.data;
     }
 
     async uploadTemporaryMedia(
@@ -1183,7 +1183,7 @@ export class WxHTTP extends HTTPService {
         type: 'image' | 'voice' | 'video' | 'thumb',
         dataStream: Readable,
         fileName?: string, mimeType?: string) {
-        const result = await this.postMultipart(
+        const result = await this.postMultipart<inf.WeChatMediaUploadReceipt>(
             '/cgi-bin/media/upload',
             {
                 access_token: clientAccessToken,
@@ -1195,40 +1195,40 @@ export class WxHTTP extends HTTPService {
         );
 
 
-        return result as inf.WeChatMediaUploadReceipt;
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaMediaCheckAsync(
         clientAccessToken: string, mediaUrl: string, type: 'image' | 'audio' = 'image'
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<{
+            trace_id: string;
+            errcode: number;
+            errmsg: string;
+        }>(
             `/wxa/media_check_async`,
             { access_token: clientAccessToken },
             { media_url: mediaUrl, media_type: type === 'audio' ? 2 : 1 }
         );
 
-        return result as {
-            trace_id: string;
-            errcode: number;
-            errmsg: string;
-        };
+        return result.data;
     }
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaMsgSecCheck(
         clientAccessToken: string, content: string
     ) {
-        const result = await this.postJson(
+        const result = await this.postJson<{
+            errcode: number;
+            errmsg: 'ok' | 'risky';
+        }>(
             `/wxa/msg_sec_check`,
             { access_token: clientAccessToken },
             { content }
         );
 
-        return result as {
-            errcode: number;
-            errmsg: 'ok' | 'risky';
-        };
+        return result.data;
     }
 
 }

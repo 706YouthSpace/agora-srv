@@ -1,9 +1,10 @@
-import { ApplicationError, HTTPService, HTTPServiceConfig, HTTPServiceRequestOptions, Response, Headers } from "@naiverlabs/tskit";
+import { ApplicationError, HTTPService, HTTPServiceConfig, HTTPServiceRequestOptions, Response, Headers, AutoCastable, Prop, PromiseWithCancel } from "@naiverlabs/tskit";
 import { KeyObject, randomBytes, X509Certificate } from "crypto";
 import _ from "lodash";
-import { APPLICATION_ERROR } from "services/errors";
+import { APPLICATION_ERROR } from "../errors";
 import { Readable } from "stream";
 import { wxPayDecryptJSONObject, wxPayOAEPDecrypt, wxPayOAEPEncrypt, wxPayRSASha256Vefify, wxPaySign } from "./wx-cryptology";
+import { WxPayCreateTrasactionDto } from "./dto/wx-pay-wxa";
 
 
 export class WxPayCryptologyError extends ApplicationError {
@@ -15,6 +16,7 @@ export class WxPayCryptologyError extends ApplicationError {
 export interface WxPayRequestOptions extends HTTPServiceRequestOptions {
     bypassSignatureVirification?: boolean;
 }
+
 
 export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOptions> {
 
@@ -176,5 +178,47 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
 
 
         return results as Array<{ serial_no: string; effective_time: string; expire_time: string; encrypt_certificate: string }>;
+    }
+
+    async createTransactionJSAPI(options: Partial<WxPayCreateTrasactionDto>) {
+        const dto = WxPayCreateTrasactionDto.from<WxPayCreateTrasactionDto>(options);
+
+        const r = await this.postJson('/v3/pay/transactions/jsapi', undefined, dto);
+
+        return r.data as { prepay_id: string };
+    }
+
+    signWxaPayment(appId: string, prepayId: string) {
+        const timeStamp = Math.floor(Date.now() / 1000).toString();
+
+        const nonceStr = randomBytes(16).toString('hex').toUpperCase();
+
+        const wxPayPackage = `prepay_id=${prepayId}`;
+
+        const signType = 'RSA';
+
+        const stringToSign = `${appId}\n${timeStamp}\n${nonceStr}\n${wxPayPackage}\n`;
+        const paySign = wxPaySign(Buffer.from(stringToSign), this.rsa2048PrivateKey).toString('base64');
+
+        return {
+            timeStamp,
+            nonceStr,
+            package: wxPayPackage,
+            signType,
+            paySign
+        }
+    }
+
+    parseNotification(data: any) {
+        const resource = data.resource;
+
+        wxPayDecryptJSONObject(resource, this.apiv3Key);
+
+        this.emit(`notify-${data.event_type}`, resource, data);
+
+        return {   
+            code: "SUCCESS",
+            message: "成功"
+        };
     }
 }
