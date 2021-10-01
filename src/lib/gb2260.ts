@@ -11,14 +11,17 @@ export class GB2260 {
 
     provinces: GB2260Node[];
     cities: GB2260Node[];
+    counties: GB2260Node[];
 
     provinceMap: { [k: string]: GB2260Node };
     cityMap: { [k: string]: GB2260Node };
+    countyMap: { [k: string]: GB2260Node };
 
     constructor() {
         const data: { [k: string]: string } = require('gb2260/lib/201607') as any;
         this.provinces = [];
         this.cities = [];
+        this.counties = [];
         const stack: GB2260Node[] = [];
         for (const [k, v] of Object.entries(data)) {
             if (k.endsWith('0000')) {
@@ -55,6 +58,7 @@ export class GB2260 {
                 if (city) {
                     city.children?.push(node);
                 }
+                this.counties.push(node);
             }
         }
 
@@ -66,6 +70,11 @@ export class GB2260 {
         this.cityMap = {};
         for (const x of this.cities) {
             this.cityMap[x.code] = x;
+        }
+
+        this.countyMap = {};
+        for (const x of this.counties) {
+            this.countyMap[x.code] = x;
         }
     }
 
@@ -80,5 +89,9 @@ export class GB2260 {
 
     getCity(code: string): GB2260Node | undefined {
         return this.cityMap[`${code.slice(0, 4)}00`];
+    }
+
+    getCounty(code: string): GB2260Node | undefined {
+        return this.countyMap[`${code.slice(0, 6)}`];
     }
 }

@@ -7,12 +7,21 @@ import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto
 import { ObjectId } from "bson";
 import { URL } from "url";
 import { Pagination } from "./dto/pagination";
+import { GB2260 } from "../lib/gb2260";
+
+enum GB2260GRAN {
+    PROVINCE = 'province',
+    CITY = 'city',
+    COUNTY = 'county'
+}
+
 
 @singleton()
 export class SiteRPCHost extends RPCHost {
 
     constructor(
-        protected mongoSite: MongoSite
+        protected mongoSite: MongoSite,
+        protected gb2260: GB2260
     ) {
         super(...arguments);
 
@@ -129,5 +138,71 @@ export class SiteRPCHost extends RPCHost {
 
         return result;
     }
+
+    @RPCMethod('site.gb2260.get')
+    async getGB2260(
+        @Pick('granularity', { type: GB2260GRAN, default: GB2260GRAN.CITY }) gb2260Granularity: GB2260GRAN,
+        @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
+    ) {
+        const query: any = {};
+
+        if (type) {
+            query.type = { $in: type };
+        }
+
+        let gb2260SubstrLength = 4;
+
+        switch (gb2260Granularity) {
+            case GB2260GRAN.PROVINCE: {
+                gb2260SubstrLength = 2;
+                break;
+            }
+            case GB2260GRAN.CITY: {
+                gb2260SubstrLength = 4;
+                break;
+            }
+            case GB2260GRAN.COUNTY: {
+                gb2260SubstrLength = 6;
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+
+        const r = await this.mongoSite.collection.aggregate<{ _id: string }>([
+            { $match: query },
+            {
+                $group: {
+                    _id: { $substrBytes: ['$locationGB2260', 0, gb2260SubstrLength] }
+                }
+            },
+        ]).toArray();
+        const zeros = '000000';
+        const areaCodes = r.filter((x) => x._id).map((x) => x._id + zeros.substring(0, 6 - x._id.length));
+
+        let final;
+
+        switch (gb2260Granularity) {
+            case GB2260GRAN.PROVINCE: {
+                final = areaCodes.map((x) => this.gb2260.getProvince(x)).map((x) => _.omit(x, 'children'));
+                break;
+            }
+            case GB2260GRAN.CITY: {
+                final = areaCodes.map((x) => this.gb2260.getCity(x)).map((x) => _.omit(x, 'children'));
+                break;
+            }
+            case GB2260GRAN.COUNTY: {
+                final = areaCodes.map((x) => this.gb2260.getCounty(x)).map((x) => _.omit(x, 'children'));
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+
+        return final;
+    }
+
 
 }
