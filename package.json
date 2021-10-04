@@ -15,7 +15,7 @@
     "node": ">=16.0.0"
   },
   "dependencies": {
-    "@naiverlabs/tskit": "^0.1.1-69a50af",
+    "@naiverlabs/tskit": "^0.1.1-563d9cc",
     "ali-oss": "^6.1.1",
     "base62": "^2.0.1",
     "busboy": "^0.3.1",
