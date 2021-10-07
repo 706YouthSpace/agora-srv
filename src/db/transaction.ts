@@ -14,18 +14,35 @@ export enum TRANSACTION_STATUS {
     CLOSED = 'Closed',
 }
 
+export enum CURRENCY {
+    CNY = 'CNY',
+}
+
+export enum TRANSACTION_REASON {
+    ATTEND_PAIED_ACTIVITY = '预定付费活动',
+    ATTEND_FREE_ACTIVITY = '预定免费活动',
+    
+    GOODS_PURCHASE = '购买物品',
+    MEMBERSHIP_PURCHASE = '购买会员',
+
+}
+
 export interface Transaction {
     _id: ObjectId;
 
-    name: string;
-    type: string;
+    uuid: string;
 
-    image?: string | ObjectId;
-    images?: Array<string | ObjectId>;
+    title: string;
+    reason: TRANSACTION_REASON;
 
-    locationText?: string;
-    locationCoord?: [number, number];
-    locationGB2260?: string;
+    merchId: ObjectId | string | number;
+
+    fromUser: ObjectId;
+
+    currencyAmount: number;
+    currencyType: CURRENCY;
+
+    status: TRANSACTION_STATUS;
 
     tags: string[];
 
@@ -33,15 +50,14 @@ export interface Transaction {
 
     createdAt: Date;
     updatedAt: Date;
-
 }
 
 
 @singleton()
-export class MongoSite extends MongoCollection<Transaction> {
+export class MongoTransaction extends MongoCollection<Transaction> {
     collectionName = 'transactions';
 
 }
 
 
-export const mongoSite = container.resolve(MongoSite);
+export const mongoTransaction = container.resolve(MongoTransaction);
