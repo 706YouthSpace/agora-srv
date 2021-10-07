@@ -71,6 +71,8 @@ export class DraftSite extends RPCParam {
     })
     locationCoord?: [number, number];
 
+    @Prop()
+    locationGB2260?: string;
 
     @Prop({
         arrayOf: String,

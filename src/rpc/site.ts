@@ -57,7 +57,7 @@ export class SiteRPCHost extends RPCHost {
             type: draft.type,
             tags: draft.tags,
             image: this.convertURLOrObjId(draft.image),
-
+            locationGB2260: draft.locationGB2260,
             images: draft.images?.map((x) => this.convertURLOrObjId(x)!).filter(Boolean),
 
             locationText: draft.locationText,
@@ -178,6 +178,9 @@ export class SiteRPCHost extends RPCHost {
                 }
             },
         ]).toArray();
+
+        return '11';
+
         const zeros = '000000';
         const areaCodes = r.filter((x) => x._id).map((x) => x._id + zeros.substring(0, 6 - x._id.length));
 
