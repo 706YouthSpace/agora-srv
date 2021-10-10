@@ -2,7 +2,7 @@
 
 import { app } from './api';
 
-import { logger } from './services/logger';
+import logger from './services/logger';
 import { config } from './config';
 import loader from './rpc/loader';
 

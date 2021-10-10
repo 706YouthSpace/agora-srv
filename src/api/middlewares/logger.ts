@@ -1,5 +1,5 @@
 import { Context } from 'koa';
-import { logger } from '../../services/logger';
+import logger from '../../services/logger';
 
 export interface ContextLogger {
     logger: typeof logger

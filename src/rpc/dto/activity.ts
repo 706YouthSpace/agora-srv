@@ -1,13 +1,11 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
 import { URL } from "url";
+import { PersonalInfo } from "db/activity";
 
-export enum SITE_TYPE {
-    BASE = '706Owned',
-    LIFE_LAB = '706LifeLab',
-    SHARED_LIVING_ROOM = '706SharedLivingroom',
-    PUBLIC_PLACES = 'public',
-    PRIVATE_PLACES = 'private'
+export enum ACT_TYPE {
+    PUBLIC_ACT = 'public',
+    PRIVATE_ACT = 'private'
 }
 
 export function wxGcj02LongitudeLatitude(input: [number, number]) {
@@ -37,17 +35,26 @@ export function reasonableText(input: string) {
 }
 
 
-export class DraftSite extends Dto {
+export class DraftActivity extends Dto {
 
     @Prop({
         validate: reasonableText
     })
-    name?: string;
+    title?: string;
+
+
+    @Prop()
+    subtitle?: string;
 
     @Prop({
-        type: SITE_TYPE
+        validate: reasonableText
     })
-    type?: SITE_TYPE;
+    detail?: string;
+
+    @Prop({
+        type: ACT_TYPE
+    })
+    type?: ACT_TYPE;
 
 
     @Prop({
@@ -75,22 +82,58 @@ export class DraftSite extends Dto {
     locationGB2260?: string;
 
     @Prop({
+        type: ObjectId
+    })
+    site?: ObjectId;
+
+    @Prop({
+        type: Number
+    })
+    participantCap?: number;
+
+    @Prop({
+        type: Number
+    })
+    pricing?: number;
+
+    @Prop({
         arrayOf: String,
         validate: reasonableText
     })
     tags?: string[];
+
+    @Prop({
+        arrayOf: PersonalInfo,
+    })
+    collectFromParticipants?: PersonalInfo[];
+
+    @Prop({
+        type: [String, ObjectId]
+    })
+    qrImage?: string | ObjectId;
+
+    @Prop({
+        type: Date
+    })
+    startAt?: Date;
+
+    @Prop({
+        type: Date
+    })
+    endAt?: Date;
+
 }
 
-export class DraftSiteForCreation extends DraftSite {
+export class DraftActivityForCreation extends DraftActivity {
     @Prop({
         validate: reasonableText,
         required: true
     })
-    name!: string;
+    title!: string;
 
     @Prop({
-        type: SITE_TYPE,
-        default: SITE_TYPE.PUBLIC_PLACES
+        type: ACT_TYPE,
+        default: ACT_TYPE.PUBLIC_ACT
     })
-    type!: SITE_TYPE;
+    type!: ACT_TYPE;
 }

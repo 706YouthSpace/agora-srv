@@ -57,9 +57,9 @@ export class SiteRPCHost extends RPCHost {
             type: draft.type,
             tags: draft.tags,
             image: this.convertURLOrObjId(draft.image),
-            locationGB2260: draft.locationGB2260,
             images: draft.images?.map((x) => this.convertURLOrObjId(x)!).filter(Boolean),
 
+            locationGB2260: draft.locationGB2260,
             locationText: draft.locationText,
             locationCoord: draft.locationCoord
         }
@@ -74,8 +74,8 @@ export class SiteRPCHost extends RPCHost {
         pagination: Pagination,
         @Pick('name') name?: string,
         @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
-        @Pick('location') locaitonText?: string,
-        @Pick('locationGB2260') locaitonGB2260?: string,
+        @Pick('location') locationText?: string,
+        @Pick('locationGB2260') locationGB2260?: string,
         @Pick('locationNear', { arrayOf: Number, validateArray: wxGcj02LongitudeLatitude })
         locationNear?: [number, number],
         @Pick('distance', { arrayOf: Number, validate: (x: number) => x > 0 })
@@ -96,12 +96,12 @@ export class SiteRPCHost extends RPCHost {
             query.tags = { $in: tags };
         }
 
-        if (locaitonText) {
-            query.locationText = { $regex: new RegExp(`.*${this.escapeRegExp(locaitonText)}.*`, 'gi') };
+        if (locationText) {
+            query.locationText = { $regex: new RegExp(`.*${this.escapeRegExp(locationText)}.*`, 'gi') };
         }
 
-        if (locaitonGB2260) {
-            query.locaitonGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locaitonGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
+        if (locationGB2260) {
+            query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
         }
 
         if (locationNear && distance) {
@@ -178,8 +178,6 @@ export class SiteRPCHost extends RPCHost {
                 }
             },
         ]).toArray();
-
-        return '11';
 
         const zeros = '000000';
         const areaCodes = r.filter((x) => x._id).map((x) => x._id + zeros.substring(0, 6 - x._id.length));

@@ -9,7 +9,11 @@ import Router from 'koa-router';
 import bodyParser from 'koa-bodyparser';
 import { CORSAllowAllMiddleware } from './middlewares/cors';
 import { injectLoggerMiddleware } from './middlewares/logger';
+
+
 import { multiParse } from './middlewares/body-parser';
+
+
 import { shimControllerForKoa } from '../rpc/shim-koa';
 
 export const app = new koa<any, any>();
@@ -44,4 +48,5 @@ router.get('/ping', (ctx, next) => {
 app.use(router.middleware());
 app.use(router.allowedMethods());
 
+// All our rpc business logic gets injected here.
 app.use(shimControllerForKoa);

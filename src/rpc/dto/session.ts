@@ -1,11 +1,11 @@
 import { MongoSession } from "../../db/session";
 import { ObjectId } from "mongodb";
 import { Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta, Dto } from "@naiverlabs/tskit";
-import { autoInjectable } from 'tsyringe';
 import { decodeBase64UrlSafe, encodeBase64UrlSafe } from "../../lib/binary";
 import { isIPv4 } from "net";
 import { IncomingMessage } from "http";
 import { URL } from "url";
+import { InjectProperty } from "../../lib/property-injector";
 
 export const SESSION_TOKEN_HEADER_NAME = 'X-Session-Token';
 export const SET_SESSION_TOKEN_HEADER_NAME = 'X-Set-Session-Token';
@@ -54,8 +54,6 @@ export interface ContextLike {
 
 }
 
-
-@autoInjectable()
 export class Session extends Dto<ContextLike> {
 
     static from(input: object) {
@@ -84,9 +82,12 @@ export class Session extends Dto<ContextLike> {
         return parsed;
     }
 
+    private __fetched: boolean = false;
     __isNew: boolean = false;
-
     data?: { [k: string]: any };
+
+    @InjectProperty()
+    protected mongoSession!: MongoSession;
 
     @Prop({
         validate: validSessionToken
@@ -95,20 +96,17 @@ export class Session extends Dto<ContextLike> {
 
     sessionId!: ObjectId;
 
-    constructor(protected mongoSession: MongoSession) {
-        super();
-    }
+    async fetch(forced?: boolean) {
 
-
-    async fetch() {
-
-        if (this.__isNew) {
+        if (!forced && (this.__isNew || this.__fetched)) {
             return this.data as { [k: string]: any };
         }
 
         await this.mongoSession.serviceReady();
 
         this.data = await this.mongoSession.getForModifaction(this.sessionId) || {};
+
+        this.__fetched = true;
 
         return this.data as { [k: string]: any };
     }

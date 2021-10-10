@@ -16,6 +16,7 @@ export interface Activity {
 
     title: string;
     subtitle?: string;
+    detail: string;
 
     type: string;
 
