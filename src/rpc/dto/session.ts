@@ -56,7 +56,8 @@ export interface ContextLike {
 
 export class Session extends Dto<ContextLike> {
 
-    static from(input: object) {
+    static override from<T = any>(input: object): T;
+    static override from(input: object) {
         const parsed = super.from(input) as Session;
         if (!parsed.sessionToken) {
             const sessionTokenText = parsed[RPC_CALL_ENVIROMENT]?.get(SESSION_TOKEN_HEADER_NAME) || parsed[RPC_CALL_ENVIROMENT]?.cookies?.get(SESSION_TOKEN_COOKIE_NAME);
