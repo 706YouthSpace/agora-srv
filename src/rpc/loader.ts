@@ -5,6 +5,7 @@ import { GB2260RPCHost } from "./gb2260";
 import { MiscRPCHost } from "./misc";
 import { SiteRPCHost } from "./site";
 import { UserRPCHost } from "./user";
+import { ActivityTagRPCHost } from "./activityTag";
 
 
 @singleton()
@@ -15,6 +16,7 @@ export class App extends AsyncService {
         public rpcUser: UserRPCHost,
         public rpcGb2260: GB2260RPCHost,
         public rpcSite: SiteRPCHost,
+        public rpcActivityTag: ActivityTagRPCHost,
         // public rpcActivity: ActivityRPCHost
     ) {
         super(...arguments);

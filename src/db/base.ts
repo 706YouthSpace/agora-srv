@@ -28,6 +28,12 @@ export abstract class MongoCollection<T extends Document, P = ObjectId> extends 
         return r;
     }
 
+    async getAll() {
+        const r = await this.collection.find({});
+
+        return r;
+    }
+
     async create(data: Partial<T>) {
         const now = new Date();
         const doc: any = { ...data, createdAt: now, updatedAt: now };
