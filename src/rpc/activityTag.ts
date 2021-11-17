@@ -3,6 +3,7 @@ import { singleton } from "tsyringe";
 import _ from "lodash";
 import { RPCMethod } from "./civi-rpc";
 import { MongoActivityTag } from "../db/activityTag";
+//import logger from '../services/logger';
 
 @singleton()
 export class ActivityTagRPCHost extends RPCHost {
@@ -20,10 +21,11 @@ export class ActivityTagRPCHost extends RPCHost {
         this.emit('ready');
     }
 
-    @RPCMethod('activityTag.getAll')
-    async getAll() {
-        const result = await this.mongoActivityTag.getAll();
-
+    @RPCMethod('activityTag.get')
+    async get() {
+        const query: any = {};
+        const result = await this.mongoActivityTag.collection.find(query).toArray();
+       
         return result;
     }
 
