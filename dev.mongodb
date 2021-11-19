@@ -41,4 +41,5 @@ db.sales.aggregate(aggregation);
 //db.activityTags.insertMany( [ { "tag":"科技"}, {  "tag":"教育"},  {  "tag":"线上"}, {  "tag":"哲学"},{  "tag":"艺术"} ] );
 db.activityTags.find()
 
+db.getCollectionInfos();
 

@@ -6,8 +6,7 @@ import { MongoCollection } from './base';
 export interface activityTag {
     _id: ObjectId;
 
-    code: string;
-    name: string;
+    tag: string;
 
 }
 
