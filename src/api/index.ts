@@ -1,3 +1,4 @@
+
 import koa from 'koa';
 
 import koaLogger from 'koa-logger';
@@ -9,7 +10,8 @@ import koaBody from 'koa-body';
 import send from 'koa-send';
 import fs from 'fs';
 import path from 'path';
-import static from 'koa-static';
+import koaStatic  from 'koa-static';
+import mime from 'mime-types';
 
 import bodyParser from 'koa-bodyparser';
 import { CORSAllowAllMiddleware } from './middlewares/cors';
@@ -27,6 +29,8 @@ export const app = new koa<any, any>();
 app.use(koaLogger());
 app.use(CORSAllowAllMiddleware);
 app.use(injectLoggerMiddleware);
+
+app.use(koaStatic ("/data/agora-srv/uploadFiles/"));
 
 app.use(bodyParser({
     enableTypes: ['json', 'form', 'text'],
@@ -52,8 +56,6 @@ app.use(koaBody({
 }));
 
 app.use(multiParse);
-app.use(static("/data/agora-srv/uploadFiles/"));
-
 
 const router = new Router<any, any>();
 
@@ -95,6 +97,26 @@ router.get('/download', async (ctx) => {
     const path = `/uploadFiles/${name}`;
     ctx.attachment(path);
     await send(ctx, path);
+})
+
+
+router.get('/uploadFiles/*', async (ctx) => {
+    //let filePath = path.join('/data/agora-srv/uploadFiles/', ctx.url); //图片地址
+    const originalUrl = ctx.originalUrl;
+    const name=originalUrl.substr(originalUrl.lastIndexOf("/")+1,originalUrl.length);
+    const filePath = `/data/agora-srv/uploadFiles/${name}`;
+    let file = null;
+    try {
+        file = fs.readFileSync(filePath); //读取文件
+    } catch (error) {
+        // //如果服务器不存在请求的图片，返回默认图片
+        // filePath = path.join(__dirname, '/images/default.png'); //默认图片地址
+        // file = fs.readFileSync(filePath); //读取文件       
+    }
+ 
+    let mimeType = mime.lookup(filePath); //读取图片文件类型
+    ctx.set('content-type', mimeType); //设置返回类型
+    ctx.body = file; //返回图片
 })
 
 app.use(router.middleware());
