@@ -1,20 +1,20 @@
 import { RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
-import { Pick, RPCMethod } from "./civi-rpc";
+import { Pick,RPCMethod } from "./civi-rpc";
 import { MongoActivities } from "../db/activity";
-import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
+//import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { ObjectId } from "bson";
 import { URL } from "url";
 import { Pagination } from "./dto/pagination";
 import { GB2260 } from "../lib/gb2260";
 import { DraftActivityForCreation } from "./dto/activity";
 
-enum GB2260GRAN {
-    PROVINCE = 'province',
-    CITY = 'city',
-    COUNTY = 'county'
-}
+// enum GB2260GRAN {
+//     PROVINCE = 'province',
+//     CITY = 'city',
+//     COUNTY = 'county'
+// }
 
 
 @singleton()
@@ -55,12 +55,13 @@ export class ActivityRPCHost extends RPCHost {
 
         const draftActivity = {
             title: draft.title,
+            subtitle: draft.subtitle,
             detail: draft.detail,
             type: draft.type,
 
             tags: draft.tags,
-            image: this.convertURLOrObjId(draft.image),
-            images: draft.images?.map((x) => this.convertURLOrObjId(x)!).filter(Boolean),
+            image: draft.image, // this.convertURLOrObjId(draft.image),
+            images: draft.images, // draft.images?.map((x) => this.convertURLOrObjId(x)!).filter(Boolean),
             
             site: draft.site,
             // host: draft.host,
@@ -70,6 +71,7 @@ export class ActivityRPCHost extends RPCHost {
             qrImage: draft.qrImage,
             startAt: draft.startAt,
             endAt: draft.endAt,
+            verified: draft.verified,
 
             locationGB2260: draft.locationGB2260,
             locationText: draft.locationText,
@@ -79,6 +81,54 @@ export class ActivityRPCHost extends RPCHost {
         const r = await this.mongoActivity.create(draftActivity);
 
         return r;
+    }
+
+    /*{  pageSize:   
+        pageIndex: 从1开始  
+        *tag: 类型 [线上、科技、教育、哲学、艺术]  
+        *locationGB2260: 所在城市  
+        *latitude: 用户纬度  
+        *longitude: 用户经度}
+    */
+    @RPCMethod('activity.find')
+    async find( pagination: Pagination,
+        @Pick('latitude') latitude?: number,
+        @Pick('longitude') longitude?: number,
+        @Pick('locationGB2260') locationGB2260?: string,
+        @Pick('tag', { arrayOf: String }) tag?: string[] ) {
+
+            const query: any = {};
+
+            if (tag) {
+                query.tags = { $in: tag };
+            }
+    
+           if(longitude && latitude){
+                query.locationCoord=[longitude , latitude];
+           }
+    
+            if (locationGB2260) {
+                query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
+            }
+    
+            const result = await this.mongoActivity.collection.find(query)
+                                                                .sort({ updatedAt: -1 })
+                                                                .skip(pagination.getSkip())
+                                                                .limit(pagination.getLimit())
+                                                                .toArray();
+    
+            pagination.setMeta(result);
+    
+            return result;
+    }
+
+    @RPCMethod('activity.get')
+    async get(
+        @Pick('id') id: ObjectId
+    ) {
+        const result = await this.mongoActivity.get(id);
+
+        return result;
     }
 
     // @RPCMethod('site.find')

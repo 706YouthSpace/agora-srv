@@ -1,6 +1,6 @@
 import { AsyncService } from "@naiverlabs/tskit";
 import { container, singleton } from "tsyringe";
-// import { ActivityRPCHost } from "./activity";
+import { ActivityRPCHost } from "./activity";
 import { GB2260RPCHost } from "./gb2260";
 import { MiscRPCHost } from "./misc";
 import { SiteRPCHost } from "./site";
@@ -19,7 +19,7 @@ export class App extends AsyncService {
         public rpcSite: SiteRPCHost,
         public rpcActivityTag: ActivityTagRPCHost,
         public rpcFileUpload: FileUploadRPCHost,
-        // public rpcActivity: ActivityRPCHost
+        public rpcActivity: ActivityRPCHost
     ) {
         super(...arguments);
 

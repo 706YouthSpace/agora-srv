@@ -37,12 +37,14 @@ export interface Activity {
 
     tags: string[];
 
-    collectFromParticipants?: PersonalInfo[];
+    collectFromParticipants?: string[];
 
     qrImage?: string | ObjectId;
 
     startAt: Date;
     endAt: Date;
+
+    verified?: string;
 
     [k: string]: any;
 

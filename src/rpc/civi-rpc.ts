@@ -7,4 +7,4 @@ container.registerSingleton(RPCRegistry);
 
 export const rPCRegistry = container.resolve(RPCRegistry);
 
-export const { RPCMethod, Pick } = rPCRegistry.decorators();
+export const { RPCMethod, Pick, Ctx } = rPCRegistry.decorators();

@@ -2,11 +2,11 @@ import { FancyFile, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
 import { Pick, RPCMethod } from "./civi-rpc";
-import { MongoFile,FileRecord } from "../db/file";
-import {config} from "../config";
+import { MongoFile } from "../db/file";
+//import { config } from "../config";
 import { StorageManager } from "../services/storage";
 import { UploadedFile } from "../api/middlewares/body-parser";
-import { SessionUser } from "./dto/user";
+//import { SessionUser } from "./dto/user";
 
 @singleton()
 export class FileUploadRPCHost extends RPCHost {
@@ -27,37 +27,40 @@ export class FileUploadRPCHost extends RPCHost {
 
     @RPCMethod('file.saveRandomFile')
     async saveRandomFile(
-        sessionUser: SessionUser,
+        //sessionUser: SessionUser,
 
         @Pick('file', { type: FancyFile })
         file: UploadedFile
     ) {
-        const userId = await sessionUser.assertUser();
+        //const userId = await sessionUser.assertUser();
+        await file.ready;
+        const fileName = await file.sha256Sum;
+        await this.localFileStorage.storeFancyFile(file, fileName);
 
-        this.localFileStorage.storeFancyFile(file, await file.sha256Sum);
-
-        return userId;
+        return fileName;
     }
 
     @RPCMethod('file.upload')
     async upload(
-        sessionUser: SessionUser,
+        // sessionUser: SessionUser,
         @Pick('file', { type: FancyFile })
         file: UploadedFile
     ) {
-        const userId = await sessionUser.assertUser();
-        let fileRcd=<FileRecord> {} ;
-        //let fileRcd: any ;
-        fileRcd.owner = userId ;
-        fileRcd.sha256SumHex = await file.sha256Sum;
-        fileRcd.mimeType = file.claimedMime==undefined?"":file.claimedMime ;
-        fileRcd.name = fileRcd.mimeType=="" ? fileRcd.sha256SumHex : fileRcd.sha256SumHex+"."+fileRcd.mimeType;
-        
-        fileRcd.createdAt = new Date;
-        const storeDir = _.get(config, 'storage.sha256Root') ;
-        this.localFileStorage.storeFancyFile(file, storeDir , fileRcd.name);
+        // const userId = await sessionUser.assertUser();
+        await file.ready;
+        const fileName = await file.sha256Sum;
 
-        return userId;
+        //let fileRcd = <FileRecord>{};
+        //let fileRcd: any ;
+        //fileRcd.owner = userId ;
+        //fileRcd.mimeType = file.claimedMime==undefined?"":file.claimedMime ;
+        //fileRcd.name = fileRcd.mimeType=="" ? fileRcd.sha256SumHex : fileRcd.sha256SumHex+"."+fileRcd.mimeType;
+        //fileRcd.createdAt = new Date;
+
+        //const storeDir = _.get(config, 'storage.sha256Root');
+        await this.localFileStorage.storeFancyFile(file, fileName, fileName);
+
+        return fileName;
     }
 
 }

@@ -1,11 +1,17 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
-import { URL } from "url";
-import { PersonalInfo } from "db/activity";
+// import { URL } from "url";
+//import { PersonalInfo } from "db/activity";
 
 export enum ACT_TYPE {
     PUBLIC_ACT = 'public',
     PRIVATE_ACT = 'private'
+}
+
+export enum VERIFIED_STATUS {
+    DRAFT= 'draft',
+    PASSED= 'passed',
+    REJECTED= 'rejected'
 }
 
 export function wxGcj02LongitudeLatitude(input: [number, number]) {
@@ -57,16 +63,12 @@ export class DraftActivity extends Dto {
     type?: ACT_TYPE;
 
 
-    @Prop({
-        type: [ObjectId, URL]
-    })
-    image?: URL | ObjectId;
+    @Prop()
+    image?: string;
 
 
-    @Prop({
-        arrayOf: [ObjectId, URL as any]
-    })
-    images?: Array<URL | ObjectId>;
+    @Prop({arrayOf: String})
+    images?: string[];
 
 
     @Prop()
@@ -103,9 +105,10 @@ export class DraftActivity extends Dto {
     tags?: string[];
 
     @Prop({
-        arrayOf: PersonalInfo,
+        arrayOf: String,
+        validate: reasonableText
     })
-    collectFromParticipants?: PersonalInfo[];
+    collectFromParticipants?: string[];
 
     @Prop({
         type: [String, ObjectId]
@@ -122,12 +125,16 @@ export class DraftActivity extends Dto {
     })
     endAt?: Date;
 
+    @Prop({
+        type: VERIFIED_STATUS,
+        default: VERIFIED_STATUS.DRAFT
+    })
+    verified?: VERIFIED_STATUS;
 }
 
 export class DraftActivityForCreation extends DraftActivity {
     @Prop({
-        validate: reasonableText,
-        required: true
+        validate: reasonableText //, required: true
     })
     title!: string;
 
