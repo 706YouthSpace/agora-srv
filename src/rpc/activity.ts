@@ -3,12 +3,14 @@ import { singleton } from "tsyringe";
 import _ from "lodash";
 import { Pick,RPCMethod } from "./civi-rpc";
 import { MongoActivities } from "../db/activity";
+import { MongoSignUp } from "../db/signUp";
 //import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { ObjectId } from "bson";
 import { URL } from "url";
 import { Pagination } from "./dto/pagination";
 import { GB2260 } from "../lib/gb2260";
 import { DraftActivityForCreation } from "./dto/activity";
+import { SignUp } from "./dto/signUp";
 
 // enum GB2260GRAN {
 //     PROVINCE = 'province',
@@ -22,6 +24,8 @@ export class ActivityRPCHost extends RPCHost {
 
     constructor(
         protected mongoActivity: MongoActivities,
+        protected mongoSignUp: MongoSignUp,
+
         protected gb2260: GB2260
     ) {
         super(...arguments);
@@ -127,6 +131,42 @@ export class ActivityRPCHost extends RPCHost {
         @Pick('id') id: ObjectId
     ) {
         const result = await this.mongoActivity.get(id);
+
+        return result;
+    }
+
+    @RPCMethod('activity.submitSignUp')
+    async submitSignUp(
+        //sessionUser: SessionUser,
+        draft: SignUp) {
+
+        //const userId = await sessionUser.assertUser();
+        const draftSignUp = {
+            userId: draft.userId,
+            activityId: draft.activityId,
+            info: draft.info,
+            paid: "N"
+        }
+
+        const r = await this.mongoSignUp.create(draftSignUp);
+
+        return r;
+    }
+
+    @RPCMethod('activity.participants')
+    async participants(
+        @Pick('activityId') activityId: string
+    ) {
+        const query: any = {};
+
+        if (activityId) {
+            query.activityId = activityId ; // { $in: activityId }; 
+        }
+        const participants = await this.mongoSignUp.collection.find(query).toArray() ;
+        const result={
+            activityId:activityId,
+            participants:participants
+        };
 
         return result;
     }

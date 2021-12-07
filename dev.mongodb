@@ -43,3 +43,5 @@ db.activityTags.find()
 
 db.getCollectionInfos();
 
+db.signUp.find({"activityId":"619f988a4138d45292afa70b"})
+
