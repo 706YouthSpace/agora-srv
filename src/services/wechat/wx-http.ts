@@ -941,6 +941,32 @@ export class WxHTTP extends HTTPService {
         return result.data;
     }
 
+    async wxSendTempMsgNew(
+        accessToken: string,
+        templateId: string,
+        toUserOpenId: string,
+        miniprogram_state: string,
+        lang:string,
+        data: object
+    ) {
+
+        const qObj: any = {
+            template_id: templateId, 
+            touser: toUserOpenId,
+            miniprogram_state: miniprogram_state,
+            lang:lang,
+            data
+        };
+        
+        const result = await this.postJson<inf.WeChatErrorReceipt>(
+            '/cgi-bin/message/subscribe/send',
+            { access_token: accessToken },
+            qObj
+        );
+
+        return result.data;
+    }
+
     async wxoCreateAccountAndBindMiniProgram(accessToken: string, appId: string) {
         const result = await this.postJson<inf.WxoAccountOpsWithAppIdReceipt>(
             '/cgi-bin/open/create',

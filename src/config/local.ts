@@ -13,6 +13,9 @@ export const config = {
         appSecret: "428c7f7fa41e8226f992ecddb6fd95ef",
         signatureToken: "sYQQt8is9yQkGFjmbwd8LfL4TDmeG2iC",
         aesEncryptionKey: "Xr59LQH0QFiR7ULJZV5Rtul6RceMmMfatKHbYQnjncM",
+        activityVerifyMsgId:"fj0OoUP4P7gX9o88swET2d_HrSLvq64gJEV_rwNOAwM",
+        activityRemindMsgId:"AMuUs66F9-Bz7faLu8q1qKIgzes8Xfg9Czfc9YeCMRs",
+        miniprogramState:"trial" , // developer为开发版；trial为体验版；formal为正式版
         callbackBaseUri: "/",
         serviceHosts: [
             "dev.local.naiver.org",

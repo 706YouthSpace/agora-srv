@@ -50,7 +50,8 @@ export interface Activity {
 
     createdAt: Date;
     updatedAt: Date;
-
+    creator: ObjectId;
+    templateId: string;
 }
 
 

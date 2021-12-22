@@ -2,12 +2,14 @@ import { RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
 import { Pick, RPCMethod } from "./civi-rpc";
-import { MongoSite } from "../db/site";
+import { MongoSite, Site } from "../db/site";
+import { MongoActivities } from "../db/activity";
 import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { ObjectId } from "bson";
 import { URL } from "url";
 import { Pagination } from "./dto/pagination";
 import { GB2260 } from "../lib/gb2260";
+import { MongoUser } from "../db/user";
 
 enum GB2260GRAN {
     PROVINCE = 'province',
@@ -21,7 +23,9 @@ export class SiteRPCHost extends RPCHost {
 
     constructor(
         protected mongoSite: MongoSite,
-        protected gb2260: GB2260
+        protected gb2260: GB2260,
+        protected mongoActivity: MongoActivities,
+        protected mongoUser: MongoUser
     ) {
         super(...arguments);
 
@@ -134,9 +138,24 @@ export class SiteRPCHost extends RPCHost {
     async get(
         @Pick('id') id: ObjectId
     ) {
-        const result = await this.mongoSite.get(id);
+        const result = await this.mongoSite.get(id) as Site;
+        const query = {
+            site: id,
+            verified: 'passed'
+        }
+        const activities = await this.mongoActivity.collection.find(query)
+        .sort({ createdAt: -1 })
+        .limit(20)
+        .toArray()
 
-        return result;
+        const creator = result.creator && await this.mongoUser.get(result.creator)
+
+        const resultData = Object.assign(result, {
+            activities,
+            creator
+        })
+
+        return resultData;
     }
 
     @RPCMethod('site.gb2260.get')

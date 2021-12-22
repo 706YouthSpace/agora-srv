@@ -2,15 +2,19 @@ import { RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
 import { Pick,RPCMethod } from "./civi-rpc";
-import { MongoActivities } from "../db/activity";
+import { Activity, MongoActivities } from "../db/activity";
 import { MongoSignUp } from "../db/signUp";
+import { MongoWxTempMsgSub } from "../db/wxTempMsgSub";
 //import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { ObjectId } from "bson";
 import { URL } from "url";
 import { Pagination } from "./dto/pagination";
+import { wxTempMsgSub } from "./dto/wxTempMsgSub";
 import { GB2260 } from "../lib/gb2260";
 import { DraftActivityForCreation } from "./dto/activity";
 import { SignUp } from "./dto/signUp";
+import { SessionUser } from "./dto/user";
+import { MongoUser } from "../db/user";
 
 // enum GB2260GRAN {
 //     PROVINCE = 'province',
@@ -25,8 +29,9 @@ export class ActivityRPCHost extends RPCHost {
     constructor(
         protected mongoActivity: MongoActivities,
         protected mongoSignUp: MongoSignUp,
-
-        protected gb2260: GB2260
+        protected mongoWxTempMsgSub: MongoWxTempMsgSub,
+        protected gb2260: GB2260,
+        protected mongoUser: MongoUser
     ) {
         super(...arguments);
 
@@ -55,7 +60,12 @@ export class ActivityRPCHost extends RPCHost {
     }
 
     @RPCMethod('activity.create')
-    async create(draft: DraftActivityForCreation) {
+    async create(
+        draft: DraftActivityForCreation,
+        sessionUser: SessionUser,
+    ) {
+
+        const userId = await sessionUser.assertUser();
 
         const draftActivity = {
             title: draft.title,
@@ -79,10 +89,15 @@ export class ActivityRPCHost extends RPCHost {
 
             locationGB2260: draft.locationGB2260,
             locationText: draft.locationText,
-            locationCoord: draft.locationCoord
+            locationCoord: draft.locationCoord,
+
+            creator: userId ,
+            templateId:draft.templateId[0]
         }
 
         const r = await this.mongoActivity.create(draftActivity);
+
+        // 若活动创建成功，还需给管理员发短信，通知他来审核。。。
 
         return r;
     }
@@ -114,6 +129,7 @@ export class ActivityRPCHost extends RPCHost {
             if (locationGB2260) {
                 query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
             }
+            query.verified='passed';
     
             const result = await this.mongoActivity.collection.find(query)
                                                                 .sort({ updatedAt: -1 })
@@ -128,6 +144,26 @@ export class ActivityRPCHost extends RPCHost {
 
     @RPCMethod('activity.get')
     async get(
+        @Pick('id') id: ObjectId
+    ) {
+        const query: any = {};
+
+        query.activityId = id ; // { $in: activityId }; 
+        const participants = await this.mongoSignUp.collection.find(query).toArray() ;
+
+        const resultData = await this.mongoActivity.get(id) as Activity;
+
+        const creator = resultData.creator && await this.mongoUser.get(resultData.creator)
+
+        const result = Object.assign(resultData, {
+            participants,
+            creator
+        })
+        return result;
+    }
+
+    @RPCMethod('activity.approve')
+    async approve(
         @Pick('id') id: ObjectId
     ) {
         const result = await this.mongoActivity.get(id);
@@ -153,23 +189,28 @@ export class ActivityRPCHost extends RPCHost {
         return r;
     }
 
-    @RPCMethod('activity.participants')
-    async participants(
-        @Pick('activityId') activityId: string
-    ) {
-        const query: any = {};
-
-        if (activityId) {
-            query.activityId = activityId ; // { $in: activityId }; 
+    @RPCMethod('activity.wxTempMsgSub')
+    async wxTempMsgSub(
+        draft: wxTempMsgSub) {
+            
+        if("subscribe_msg_popup_event"!=draft.Event){
+            return ;
         }
-        const participants = await this.mongoSignUp.collection.find(query).toArray() ;
-        const result={
-            activityId:activityId,
-            participants:participants
-        };
 
-        return result;
+        const draftWxTempMsgSub = {
+            ToUserName: draft.ToUserName,
+            FromUserName: draft.FromUserName,
+            CreateTime: draft.CreateTime,
+            TemplateId: draft.SubscribeMsgPopupEvent[0].TemplateId,
+            SubscribeStatusString: draft.SubscribeMsgPopupEvent[0].SubscribeStatusString,
+            Sent: "N"
+        }
+
+        await this.mongoWxTempMsgSub.create(draftWxTempMsgSub);
+
+        return ;
     }
+
 
     // @RPCMethod('site.find')
     // async find(

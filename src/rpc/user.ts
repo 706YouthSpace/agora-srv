@@ -5,9 +5,13 @@ import { WxPlatformService } from "../services/wechat/wx-platform";
 import { Config } from "../config";
 import { ChangeStreamDocument } from "mongodb";
 import _ from "lodash";
+import { ObjectId } from "bson";
 import { Pick, RPCMethod } from "./civi-rpc";
 import { Session } from "./dto/session";
 import { MongoUser } from "../db/user";
+import { SessionUser } from "./dto/user";
+import { MongoActivities } from "../db/activity";
+import { MongoSignUp } from "../db/signUp";
 
 interface WxaConf {
     appId: string;
@@ -23,7 +27,9 @@ export class UserRPCHost extends RPCHost {
         protected mongoConf: MongoConfig,
         protected config: Config,
         protected wxService: WxPlatformService,
-        protected mongoUser: MongoUser
+        protected mongoUser: MongoUser,
+        protected mongoActivity: MongoActivities,
+        protected mongoSignUp: MongoSignUp,
     ) {
         super(...arguments);
         this.init();
@@ -46,6 +52,63 @@ export class UserRPCHost extends RPCHost {
         });
 
         this.emit('ready');
+    }
+
+    @RPCMethod('user.update')
+    async userUpdate(
+        sessionUser: SessionUser,
+        @Pick('avatarUrl') avatarUrl: string,
+        @Pick('nickName') nickName: string,
+        @Pick('bio') bio: string
+    ) {
+        const userId = await sessionUser.assertUser();
+        if (userId) {
+
+            const update = {}
+            if (avatarUrl) {
+                // @ts-ignore
+                update.avatarUrl = avatarUrl
+                // @ts-ignore
+                update.nickName = nickName
+            }
+            if (bio !== undefined) {
+                // @ts-ignore
+                update.bio = bio
+            }
+            await this.mongoUser.set(userId,update)
+            const user = await this.mongoUser.get(userId)
+            
+            return user
+        }
+        return false
+    }
+
+    @RPCMethod('user.get')
+    async getUser(
+        @Pick('id') id: ObjectId,
+    ) {
+        const user = await this.mongoUser.get(id)
+
+        const createActNum = await this.mongoActivity.collection.find({
+            creator: id,
+            verified: 'passed'
+        }).count()
+
+        const joinActNum = await this.mongoSignUp.collection.find({
+            userId: id,
+            paid: 'Y'
+        }).count()
+
+        return {
+            // @ts-ignore
+            avatarUrl: user.avatarUrl,
+            // @ts-ignore
+            nickName: user.nickName,
+            // @ts-ignore
+            bio: user.bio,
+            createActNum,
+            joinActNum
+        }
     }
 
     @RPCMethod('user.login')

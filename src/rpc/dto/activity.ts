@@ -52,9 +52,7 @@ export class DraftActivity extends Dto {
     @Prop()
     subtitle?: string;
 
-    @Prop({
-        validate: reasonableText
-    })
+    @Prop()
     detail?: string;
 
     @Prop({
@@ -130,6 +128,16 @@ export class DraftActivity extends Dto {
         default: VERIFIED_STATUS.DRAFT
     })
     verified?: VERIFIED_STATUS;
+
+    @Prop({
+        type: ObjectId
+    })
+    creator!: ObjectId
+
+    @Prop({
+        arrayOf: String
+    })
+    templateId!: string[];
 }
 
 export class DraftActivityForCreation extends DraftActivity {
@@ -143,4 +151,5 @@ export class DraftActivityForCreation extends DraftActivity {
         default: ACT_TYPE.PUBLIC_ACT
     })
     type!: ACT_TYPE;
+
 }
