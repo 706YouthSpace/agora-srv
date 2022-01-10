@@ -1,6 +1,6 @@
 import { config } from "../config";
 import {WxHTTP } from "../services/wechat/wx-http" ;
-import { MongoWxTempMsgSub } from "../db/wxTempMsgSub";
+import { MongoSignUp } from "../db/signUp";
 
 const wxAppId = config.wechat.appId;
 const wxAppSecret = config.wechat.appSecret;
@@ -10,7 +10,7 @@ export class CronJob {
 
     wxHttp:WxHTTP=new WxHTTP();
     accessToken: string="";
-    mongoWxTempMsgSub: MongoWxTempMsgSub=new MongoWxTempMsgSub();
+    mongoSignUp: MongoSignUp=new MongoSignUp();
 
     async startCronJob(){
         setInterval(this.doCronJob,60*1000);
@@ -33,24 +33,24 @@ export class CronJob {
      
      // 发送活动提醒消息到微信
      async sendWxTemplateMsg(){
-         let query={Sent:"N",
-                    SubscribeStatusString:"accept",
-                    TemplateId:config.wechat.activityRemindMsgId }; 
+         let query={sent:"N",
+                    subscribeStatusString:"accept",
+                    templateId:config.wechat.activityRemindMsgId }; 
 
-         const result = await this.mongoWxTempMsgSub.collection.find(query).toArray() ;
+         const result = await this.mongoSignUp.collection.find(query).toArray() ;
          for(let rt of result){
             //POST https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=ACCESS_TOKEN
             let msgInfo={
-                 thing1: { value: "any" },  // 
-                 date2: { value: "any" } ,  // 
-                 date5: { value: "any" } ,  // 
-                 thing8: { value: "any" } , // 
-                 thing7: { value: "any" } , // 
+                 thing1: { value: "any"  },  // 活动名称
+                 date2: { value: "any" } ,  // 活动时间
+                 date5: { value: "any" } ,  // 开始时间
+                 thing8: { value: "any" } , // 活动地点
+                 thing7: { value: "any" } , // 备注
                 };
             let sendInfo={
                 access_token:this.getAccessToken(),
-                touser:rt.FromUserName,
-                template_id:rt.TemplateId,
+                touser:rt.fromUserName,
+                template_id:rt.templateId,
                 page:"",
                 data:msgInfo,
                 miniprogram_state:config.wechat.miniprogramState,

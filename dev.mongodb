@@ -45,3 +45,38 @@ db.getCollectionInfos();
 
 db.signUp.find({"activityId":"619f988a4138d45292afa70b"})
 
+use("x706");
+db.signUp.updateOne(
+    { "_id" : ObjectId("61d4490cf00bd6a1a89fc6b1") }, // specifies the document to update
+    {
+      $set: {  "paid" : "Y" }
+    }
+)
+//  
+use("x706");
+db.signUp.find({"paid":"Y"})
+
+db.activities.aggregate(
+                    [
+                        
+                        {
+                            $geoNear: {
+                               near:{ type: "Point", coordinates:  [0 , 0]} ,
+                               spherical: true,
+                               //query: {},
+                               distanceField: "calcDistance"
+                            }
+                         },
+                         {
+                            $lookup:
+                               {
+                                  from: "sites",
+                                  localField: "site",
+                                  foreignField: "_id",
+                                  as: "site_info"
+                              }
+                         },
+                        { $match: {title: "测试活动title112"} },
+                        { $unwind: "$site_info" },
+                     ]
+            )

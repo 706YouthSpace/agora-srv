@@ -9,7 +9,7 @@ import { MongoWxTempMsgSub } from "../db/wxTempMsgSub";
 import { ObjectId } from "bson";
 import { URL } from "url";
 import { Pagination } from "./dto/pagination";
-import { wxTempMsgSub } from "./dto/wxTempMsgSub";
+//import { wxTempMsgSub } from "./dto/wxTempMsgSub";
 import { GB2260 } from "../lib/gb2260";
 import { DraftActivityForCreation } from "./dto/activity";
 import { SignUp } from "./dto/signUp";
@@ -62,10 +62,10 @@ export class ActivityRPCHost extends RPCHost {
     @RPCMethod('activity.create')
     async create(
         draft: DraftActivityForCreation,
-        sessionUser: SessionUser,
+        //sessionUser: SessionUser,
     ) {
 
-        const userId = await sessionUser.assertUser();
+        //const userId = await sessionUser.assertUser();
 
         const draftActivity = {
             title: draft.title,
@@ -91,11 +91,16 @@ export class ActivityRPCHost extends RPCHost {
             locationText: draft.locationText,
             locationCoord: draft.locationCoord,
 
-            creator: userId ,
-            templateId:draft.templateId[0]
+           // creator: userId ,
+            templateId:""
+        }
+        //console.log(draft);
+        if(draft.templateId!=undefined  && draft.templateId.length>0){
+            draftActivity.templateId=draft.templateId[0];
         }
 
         const r = await this.mongoActivity.create(draftActivity);
+        this.mongoActivity.collection.createIndex( { locationCoord : "2dsphere" } )
 
         // 若活动创建成功，还需给管理员发短信，通知他来审核。。。
 
@@ -122,42 +127,214 @@ export class ActivityRPCHost extends RPCHost {
                 query.tags = { $in: tag };
             }
     
-           if(longitude && latitude){
-                query.locationCoord=[longitude , latitude];
+           if(!longitude){
+                longitude=0;
+           }
+           if(!latitude){
+                latitude=0;
            }
     
             if (locationGB2260) {
                 query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
             }
-            query.verified='passed';
+            //query.verified='passed';  // 临时注释，后面需去掉注释
+
+            // query.locationCoord={
+            //         $nearSphere:{
+            //             $geometry:{
+            //                 type:"Point",
+            //                 coordinates:[longitude , latitude]
+            //                 }
+            //             }
+            //         };
     
-            const result = await this.mongoActivity.collection.find(query)
-                                                                .sort({ updatedAt: -1 })
-                                                                .skip(pagination.getSkip())
-                                                                .limit(pagination.getLimit())
-                                                                .toArray();
+            // const result = await this.mongoActivity.collection.find(query)
+                                                                // .sort({ updatedAt: -1 })
+                                                                // .skip(pagination.getSkip())
+                                                                // .limit(pagination.getLimit())
+                                                                // .toArray();
+
+
+            const result = await this.mongoActivity.collection.aggregate(
+                    [
+                        
+                        {
+                            $geoNear: {
+                               near:{ type: "Point", coordinates:  [longitude , latitude]} ,
+                               spherical: true,
+                               key: "locationCoord",
+                              // query: query,
+                               distanceField: "calcDistance"
+                            }
+                         },
+                         {
+                            $lookup:
+                               {
+                                  from: "sites",
+                                  localField: "site",
+                                  foreignField: "_id",
+                                  as: "site_info"
+                              }
+                         },
+                        { $match: query },
+                        { $unwind: "$site_info" },
+                        {
+                            $addFields: { isEnd:
+                                { $lte: [ "$endAt", "$$NOW" ] } }
+                        }
+                    ]
+            ).skip(pagination.getSkip())
+            .limit(pagination.getLimit())
+            .toArray();  //  .sort({ updatedAt: -1 }) 
     
             pagination.setMeta(result);
     
             return result;
     }
 
+    @RPCMethod('activity.applierDetail') 
+    async applierDetail(
+        sessionUser: SessionUser,
+        @Pick('activityId') activityId: ObjectId
+    ) {
+        const userId = await sessionUser.assertUser();
+        const act = await this.mongoActivity.collection.findOne(activityId)
+        if (!act || act.creator.toHexString() !== userId.toHexString()) {
+            return false
+        }
+        const query = {
+            activityId: activityId.toHexString() , // { $in: activityId }; 
+            paid: 'Y'
+        }
+
+        const participants = await this.mongoSignUp.collection.aggregate([
+            {
+               $lookup:
+                  {
+                     from: "users",
+                     localField: "userId",
+                     foreignField: "_id",
+                     as: "user_info"
+                 }
+            },
+            { $match: query },
+            {
+                $project:
+                    {
+                        avatarUrl: { $arrayElemAt: ['$user_info.avatarUrl', 0] },
+                        nickName: { $arrayElemAt: ['$user_info.nickName', 0] },
+                        userId: { $arrayElemAt: ['$user_info._id', 0] },
+                        info: 1,
+                    }
+            }
+            // { $unwind: "$user_info" },
+         ]).toArray();
+
+         return {participants}
+    }
+
+    @RPCMethod('activity.signUpResult') 
+    async signUpResult(
+        sessionUser: SessionUser,
+        @Pick('activityId') activityId: ObjectId
+    ) {
+        const userId = await sessionUser.assertUser();
+        const query = {
+            userId,
+            activityId: activityId.toHexString(),
+            // paid: 'Y'
+        }
+        const item = await this.mongoSignUp.collection.findOne(query)
+        if (item) {
+            const queryActivity: any = {};
+            queryActivity._id = activityId;
+            const resultData = await this.mongoActivity.collection.aggregate(
+                [
+                    {
+                       $lookup:
+                          {
+                             from: "sites",
+                             localField: "site",
+                             foreignField: "_id",
+                             as: "site_info"
+                         }
+                    },
+                    { $match: queryActivity },
+                    { $unwind: "$site_info" },
+                 ]
+            ).next() as Activity; 
+            return resultData
+        }
+        return {a: "1"}
+    }
+
     @RPCMethod('activity.get')
     async get(
-        @Pick('id') id: ObjectId
+        @Pick('id') id: ObjectId,
+        sessionUser: SessionUser,
     ) {
         const query: any = {};
+        const userId = await sessionUser.assertUser();
+        query.activityId = id.toHexString() ; // { $in: activityId }; 
+        query.paid = 'Y'
+        // const participants = await this.mongoSignUp.collection.find(query).toArray() ;
+        const participants = await this.mongoSignUp.collection.aggregate([
+            {
+               $lookup:
+                  {
+                     from: "users",
+                     localField: "userId",
+                     foreignField: "_id",
+                     as: "user_info"
+                 }
+            },
+            { $match: query },
+            {
+                $project:
+                    {
+                        avatarUrl: { $arrayElemAt: ['$user_info.avatarUrl', 0] },
+                        nickName: { $arrayElemAt: ['$user_info.nickName', 0] },
+                        userId: { $arrayElemAt: ['$user_info._id', 0] },
+                    }
+            }
+            // { $unwind: "$user_info" },
+         ]).toArray() ;
 
-        query.activityId = id ; // { $in: activityId }; 
-        const participants = await this.mongoSignUp.collection.find(query).toArray() ;
 
-        const resultData = await this.mongoActivity.get(id) as Activity;
+        //const resultData = await this.mongoActivity.get(id) as Activity;
+        const queryActivity: any = {};
+        queryActivity._id = id ;
+        const resultData = await this.mongoActivity.collection.aggregate(
+            [
+                {
+                   $lookup:
+                      {
+                         from: "sites",
+                         localField: "site",
+                         foreignField: "_id",
+                         as: "site_info"
+                     }
+                },
+                { $match: queryActivity },
+                { $unwind: "$site_info" },
+                {
+                    $addFields: { isEnd:
+                        { $lte: [ "$endAt", "$$NOW" ] },
+                     }
+                }
+             ]
+        ).next() as Activity;
 
         const creator = resultData.creator && await this.mongoUser.get(resultData.creator)
 
+        const isJoined = userId && participants.some(item => {
+            return item.userId.toHexString() === userId.toHexString()
+        })
+
         const result = Object.assign(resultData, {
             participants,
-            creator
+            creator,
+            isJoined
         })
         return result;
     }
@@ -173,15 +350,22 @@ export class ActivityRPCHost extends RPCHost {
 
     @RPCMethod('activity.submitSignUp')
     async submitSignUp(
-        //sessionUser: SessionUser,
-        draft: SignUp) {
+        sessionUser: SessionUser,
+        draft: SignUp
+        ) {
 
-        //const userId = await sessionUser.assertUser();
+        const userId = await sessionUser.assertUser();
         const draftSignUp = {
-            userId: draft.userId,
+            userId,
             activityId: draft.activityId,
             info: draft.info,
-            paid: "N"
+            paid: "N",
+            toUserName: draft.toUserName,
+            fromUserName: draft.fromUserName,
+            createTime: draft.createTime,
+            templateId: draft.subscribeMsgPopupEvent[0].templateId,
+            subscribeStatusString:  draft.subscribeMsgPopupEvent[0].subscribeStatusString,
+            sent: "N",
         }
 
         const r = await this.mongoSignUp.create(draftSignUp);
@@ -189,27 +373,27 @@ export class ActivityRPCHost extends RPCHost {
         return r;
     }
 
-    @RPCMethod('activity.wxTempMsgSub')
-    async wxTempMsgSub(
-        draft: wxTempMsgSub) {
+    // @RPCMethod('activity.wxTempMsgSub')
+    // async wxTempMsgSub(
+    //     draft: wxTempMsgSub) {
             
-        if("subscribe_msg_popup_event"!=draft.Event){
-            return ;
-        }
+    //     if("subscribe_msg_popup_event"!=draft.Event){
+    //         return ;
+    //     }
 
-        const draftWxTempMsgSub = {
-            ToUserName: draft.ToUserName,
-            FromUserName: draft.FromUserName,
-            CreateTime: draft.CreateTime,
-            TemplateId: draft.SubscribeMsgPopupEvent[0].TemplateId,
-            SubscribeStatusString: draft.SubscribeMsgPopupEvent[0].SubscribeStatusString,
-            Sent: "N"
-        }
+    //     const draftWxTempMsgSub = {
+    //         ToUserName: draft.ToUserName,
+    //         FromUserName: draft.FromUserName,
+    //         CreateTime: draft.CreateTime,
+    //         TemplateId: draft.SubscribeMsgPopupEvent[0].TemplateId,
+    //         SubscribeStatusString: draft.SubscribeMsgPopupEvent[0].SubscribeStatusString,
+    //         Sent: "N"
+    //     }
 
-        await this.mongoWxTempMsgSub.create(draftWxTempMsgSub);
+    //     await this.mongoWxTempMsgSub.create(draftWxTempMsgSub);
 
-        return ;
-    }
+    //     return ;
+    // }
 
 
     // @RPCMethod('site.find')

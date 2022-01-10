@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
 
+
 export interface SignUp {
     _id: ObjectId;
 
@@ -14,6 +15,16 @@ export interface SignUp {
 
     paid: string;
 
+    toUserName: string;
+
+    fromUserName: string;
+    
+    createTime: string;
+
+    templateId: string;
+    subscribeStatusString: string;
+
+    sent: string;
 }
 
 @singleton()

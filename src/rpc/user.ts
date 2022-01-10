@@ -77,8 +77,28 @@ export class UserRPCHost extends RPCHost {
             }
             await this.mongoUser.set(userId,update)
             const user = await this.mongoUser.get(userId)
+
+            const createActList = await this.mongoActivity.collection.find({
+                creator: userId,
+                verified: 'passed'
+            }).toArray()
+    
+            const joinActList = await this.mongoSignUp.collection.find({
+                userId,
+                paid: 'Y'
+            }).toArray()
             
-            return user
+            return {
+                // @ts-ignore
+                avatarUrl: user.avatarUrl,
+                // @ts-ignore
+                nickName: user.nickName,
+                // @ts-ignore
+                bio: user.bio,
+                createActList,
+                joinActList
+            }
+
         }
         return false
     }
@@ -89,15 +109,15 @@ export class UserRPCHost extends RPCHost {
     ) {
         const user = await this.mongoUser.get(id)
 
-        const createActNum = await this.mongoActivity.collection.find({
+        const createActList = await this.mongoActivity.collection.find({
             creator: id,
             verified: 'passed'
-        }).count()
+        }).toArray()
 
-        const joinActNum = await this.mongoSignUp.collection.find({
+        const joinActList = await this.mongoSignUp.collection.find({
             userId: id,
             paid: 'Y'
-        }).count()
+        }).toArray()
 
         return {
             // @ts-ignore
@@ -106,8 +126,8 @@ export class UserRPCHost extends RPCHost {
             nickName: user.nickName,
             // @ts-ignore
             bio: user.bio,
-            createActNum,
-            joinActNum
+            createActList,
+            joinActList
         }
     }
 

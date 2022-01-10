@@ -152,4 +152,9 @@ export class DraftActivityForCreation extends DraftActivity {
     })
     type!: ACT_TYPE;
 
+    @Prop({
+        arrayOf: String
+    })
+    templateId!: string[];
+
 }
