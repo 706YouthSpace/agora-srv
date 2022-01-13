@@ -16,6 +16,8 @@ export const config = {
         activityVerifyMsgId:"fj0OoUP4P7gX9o88swET2d_HrSLvq64gJEV_rwNOAwM",
         activityRemindMsgId:"AMuUs66F9-Bz7faLu8q1qKIgzes8Xfg9Czfc9YeCMRs",
         miniprogramState:"trial" , // developer为开发版；trial为体验版；formal为正式版
+        mchid:"1605653192",
+        notifyUrl:"https://dev.access.naiver.org/api/activity/paymentNotify",
         callbackBaseUri: "/",
         serviceHosts: [
             "dev.local.naiver.org",

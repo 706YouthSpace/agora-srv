@@ -93,11 +93,11 @@ export class WxPayDiscountDto extends AutoCastable {
     invoice_id?: string;
 
 
-    @Prop({
-        arrayOf: WxPayGoodsDto,
-        validateArray: length(1, 6000),
-        desc: '单品列表信息。条目个数限制：【1，6000】'
-    })
+    // @Prop({
+    //     arrayOf: WxPayGoodsDto,
+    //     validateArray: length(1, 6000),
+    //     desc: '单品列表信息。条目个数限制：【1，6000】'
+    // })
     goods_detail?: WxPayGoodsDto[];
 }
 

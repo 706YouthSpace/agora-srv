@@ -2,7 +2,7 @@ import { AutoCastable, Prop } from "@naiverlabs/tskit";
 import { length } from "./validators";
 import { URL } from "url";
 import { validNotifyUrl } from "./validators";
-import { WxPayAmoutDto, WxPayPayerDto, WxPayDiscountDto, WxPaySceneDto, WxPaySettleInfoDto, WXPAY_TRADE_TYPE, WXPAY_TRADE_STATE, WxPayAmoutNotificationDto, WxPaySceneNotificationDto } from "./wx-pay-common";
+import { WxPayAmoutDto, WxPayPayerDto, WxPayDiscountDto, WxPaySceneDto, WxPaySettleInfoDto, WXPAY_TRADE_TYPE, WXPAY_TRADE_STATE, WxPayAmoutNotificationDto } from "./wx-pay-common";
 
 export class WxPayCreateTrasactionDto extends AutoCastable {
     @Prop({

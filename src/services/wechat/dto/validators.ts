@@ -1,11 +1,11 @@
 import { URL } from "url";
 
 export function length(min: number, max: number) {
-    const func = (val: string) => {
+    let func = (val: string) => {
         return val.length >= min && val.length <= max;
     }
 
-    func.name = `length${min}To${max}`;
+    //func.name = `length${min}To${max}`;
 
     return func;
 }

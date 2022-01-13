@@ -25,6 +25,20 @@ export interface SignUp {
     subscribeStatusString: string;
 
     sent: string;
+
+    wxPaidTimeEnd: string;
+
+    outTradeNo: string;
+
+    wxPrepayId: string;
+
+    wxTransactionId: string;
+
+    wxReturnCode: string;
+    wxResultCode: string;
+    wxErrCode: string;
+    wxErrCodeDes: string;
+
 }
 
 @singleton()
