@@ -1,11 +1,11 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
 
-class SubscribeMsgPopupEvent {
-    templateId: string="";
-    subscribeStatusString: string="";
-    popupScene: string="";
-}
+// class SubscribeMsgPopupEvent {
+//     templateId: string="";
+//     subscribeStatusString: string="";
+//     popupScene: string="";
+// }
 
 export class SignUp extends Dto {
 
@@ -13,7 +13,7 @@ export class SignUp extends Dto {
     userId?: ObjectId;
 
     @Prop()
-    activityId?: string;
+    activityId?: ObjectId;
     
     @Prop()
     info?: string;
@@ -41,9 +41,7 @@ export class SignUp extends Dto {
     @Prop()
     event!: string;
 
-    @Prop({
-        arrayOf: SubscribeMsgPopupEvent
-    })
-    subscribeMsgPopupEvent!: SubscribeMsgPopupEvent[];
+    @Prop()
+    templateId!: string;
 
 }

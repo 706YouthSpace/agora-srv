@@ -162,7 +162,6 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
     async getPlatformCertificates() {
         const r = await this.get(
             '/v3/certificates',
-            undefined,
             {
                 responseType: 'json',
                 headers: { 'User-Agent': `${process.title} Node.js ${process.version}` },

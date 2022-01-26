@@ -5,6 +5,7 @@ import { app } from './api';
 import logger from './services/logger';
 import { config } from './config';
 import loader from './rpc/loader';
+import cronJob  from './api/cronJob';
 
 // import { upgradeToKoa } from './lib/ws-koa';
 
@@ -18,6 +19,8 @@ loader.load().then(() => {
     // upgradeToKoa(app, server);
 
     logger.info(`Public Server listining on TCP port ${LISTEN_PORT}`);
+
+    cronJob.startCronJob() ;
 });
 
 process.on('unhandledRejection', (_err) => {

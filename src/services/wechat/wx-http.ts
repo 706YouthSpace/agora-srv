@@ -947,6 +947,7 @@ export class WxHTTP extends HTTPService {
         toUserOpenId: string,
         miniprogram_state: string,
         lang:string,
+        page:string,
         data: object
     ) {
 
@@ -955,6 +956,7 @@ export class WxHTTP extends HTTPService {
             touser: toUserOpenId,
             miniprogram_state: miniprogram_state,
             lang:lang,
+            page:page,
             data
         };
         

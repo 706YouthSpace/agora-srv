@@ -12,10 +12,10 @@ import { URL } from "url";
 import { Pagination } from "./dto/pagination";
 //import { wxTempMsgSub } from "./dto/wxTempMsgSub";
 import { GB2260 } from "../lib/gb2260";
-import { DraftActivityForCreation } from "./dto/activity";
+import { DraftActivityForCreation, VERIFIED_STATUS } from "./dto/activity";
 import { SignUp } from "./dto/signUp";
 import { SessionUser } from "./dto/user";
-import { MongoUser } from "../db/user";
+import { MongoUser, User } from "../db/user";
 import {WxPayHTTP } from "../services/wechat/wx-pay-v2";
 import { config } from "../config";
 import { MongoSite } from "../db/site";
@@ -27,7 +27,8 @@ import { MongoSite } from "../db/site";
 // }
 @singleton()
 export class ActivityRPCHost extends RPCHost {
-    wxPayHttp:WxPayHTTP=new WxPayHTTP({});
+    wxPayHttp:WxPayHTTP=new WxPayHTTP({ rsa2048PrivateKey: config.wechat.aesEncryptionKey ,
+                                        apiv3Key: config.wechat.appSecret}); //待调整
     constructor(
         protected mongoActivity: MongoActivities,
         protected mongoSignUp: MongoSignUp,
@@ -58,9 +59,9 @@ export class ActivityRPCHost extends RPCHost {
     @RPCMethod('activity.create')
     async create(
         draft: DraftActivityForCreation,
-        //sessionUser: SessionUser,
+        sessionUser: SessionUser,
     ) {
-        //const userId = await sessionUser.assertUser();
+        const userId = await sessionUser.assertUser();
         const draftActivity = {
             title: draft.title,
             subtitle: draft.subtitle,
@@ -82,7 +83,7 @@ export class ActivityRPCHost extends RPCHost {
             locationGB2260: draft.locationGB2260,
             locationText: draft.locationText,
             locationCoord: draft.locationCoord,
-           // creator: userId ,
+            creator: userId ,
             templateId:""
         }
 
@@ -112,7 +113,9 @@ export class ActivityRPCHost extends RPCHost {
         @Pick('latitude') latitude?: number,
         @Pick('longitude') longitude?: number,
         @Pick('locationGB2260') locationGB2260?: string,
-        @Pick('tag', { arrayOf: String }) tag?: string[] ) {
+        @Pick('tag', { arrayOf: String }) tag?: string[],
+        @Pick('auth') auth?: boolean,
+   ) {
             const query: any = {};
             if (tag) {
                 query.tags = { $in: tag };
@@ -128,7 +131,7 @@ export class ActivityRPCHost extends RPCHost {
             if (locationGB2260) {
                 query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
             }
-            //query.verified='passed';  // 临时注释，后面需去掉注释
+            query.verified = auth ? 'draft' : 'passed' ;  // 临时注释，后面需去掉注释
             // query.locationCoord={
             //         $nearSphere:{
             //             $geometry:{
@@ -151,7 +154,7 @@ export class ActivityRPCHost extends RPCHost {
                                near:{ type: "Point", coordinates:  [longitude , latitude]} ,
                                spherical: true,
                                key: "locationCoord",
-                              // query: query,
+                               query: query,
                                distanceField: "calcDistance"
                             }
                          },
@@ -190,7 +193,7 @@ export class ActivityRPCHost extends RPCHost {
             return false
         }
         const query = {
-            activityId: activityId.toHexString() , // { $in: activityId }; 
+            activityId: activityId , // { $in: activityId }; 
             paid: 'Y'
         }
         const participants = await this.mongoSignUp.collection.aggregate([
@@ -225,7 +228,7 @@ export class ActivityRPCHost extends RPCHost {
         const userId = await sessionUser.assertUser();
         const query = {
             userId,
-            activityId: activityId.toHexString(),
+            activityId: activityId,
             // paid: 'Y'
         }
         const item = await this.mongoSignUp.collection.findOne(query)
@@ -258,7 +261,7 @@ export class ActivityRPCHost extends RPCHost {
     ) {
         const query: any = {};
         const userId = await sessionUser.assertUser();
-        query.activityId = id.toHexString() ; // { $in: activityId }; 
+        query.activityId = id ; // { $in: activityId }; 
         query.paid = 'Y'
         // const participants = await this.mongoSignUp.collection.find(query).toArray() ;
         const participants = await this.mongoSignUp.collection.aggregate([
@@ -318,32 +321,52 @@ export class ActivityRPCHost extends RPCHost {
     }
     @RPCMethod('activity.approve')
     async approve(
-        @Pick('id') id: ObjectId
+        @Pick('id') id: ObjectId,
+        @Pick('approve') approve: boolean,
+        sessionUser: SessionUser,
     ) {
-        const result = await this.mongoActivity.get(id);
-        return result;
+        const userId = await sessionUser.assertUser();
+        const user = await this.mongoUser.get(userId) as User;
+        if (!user.isAdmin) {
+            return false
+        }
+
+        const result = await this.mongoActivity.get(id) as Activity;
+        const verified = approve ? VERIFIED_STATUS.PASSED : VERIFIED_STATUS.REJECTED
+        const data = await this.mongoActivity.set(result._id, {verified})
+        return data;
     }
+
+
     @RPCMethod('activity.submitSignUp')
     async submitSignUp(
         sessionUser: SessionUser,
         draft: SignUp
         ) {
         const userId = await sessionUser.assertUser();
+        const user = await this.mongoUser.get(userId) as any;
+        const openId= Object.values(user.wxOpenId)[0] as string;
     console.log(draft);
+
+        const activity = await this.mongoActivity.collection.findOne(draft.activityId as ObjectId) as Activity
+        console.log(activity)
+        const needToPay =  activity.pricing === 0 ? "N" : "Y"
+
         const draftSignUp = {
             userId: userId,
             activityId: draft.activityId,
-            info: draft.info,
-            paid: "N",
-            toUserName: draft.toUserName,
-            fromUserName: draft.fromUserName,
-            createTime: draft.createTime,
-            templateId: draft.subscribeMsgPopupEvent.length>0 ?draft.subscribeMsgPopupEvent[0].templateId: "",
-            subscribeStatusString: draft.subscribeMsgPopupEvent.length>0 ? draft.subscribeMsgPopupEvent[0].subscribeStatusString:"",
+            info: activity.info,
+            paid: needToPay === "Y" ? "N" : "Y",
+            needToPay,
+            toUserName: config.wechat.appId,
+            fromUserName:openId ,
+            createTime: activity.createAt,
+            templateId: draft.templateId,
+            subscribeStatusString: "accept",
             sent: "N",
         }
         const r = await this.mongoSignUp.create(draftSignUp);
-        return r;
+        return Object.assign(r, { needToPay });
     }
 
     @RPCMethod('activity.askPay')
@@ -353,7 +376,7 @@ export class ActivityRPCHost extends RPCHost {
     ) {
         const userId = await sessionUser.assertUser();
         const user = await this.mongoUser.get(userId) as any;
-        const openId= user.wxOpenId.appId ;
+        const openId= Object.values(user.wxOpenId)[0] as string;
 
         let query={_id: signUpId }; 
         const signUpInfo = await this.mongoSignUp.collection.aggregate(

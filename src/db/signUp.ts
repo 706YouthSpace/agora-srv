@@ -9,11 +9,12 @@ export interface SignUp {
 
     userId: ObjectId;
 
-    activityId: string;
+    activityId: ObjectId;
     
     info: string;
 
     paid: string;
+    needToPay: string;
 
     toUserName: string;
 
@@ -22,7 +23,6 @@ export interface SignUp {
     createTime: string;
 
     templateId: string;
-    subscribeStatusString: string;
 
     sent: string;
 

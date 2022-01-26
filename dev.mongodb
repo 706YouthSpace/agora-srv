@@ -54,7 +54,7 @@ db.signUp.updateOne(
 )
 //  
 use("x706");
-db.signUp.find({"paid":"Y"})
+db.signUp.find({"sent":"N"})
 
 db.activities.aggregate(
                     [
