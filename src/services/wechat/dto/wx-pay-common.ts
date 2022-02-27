@@ -1,6 +1,6 @@
 import { AutoCastable, Prop } from "@naiverlabs/tskit";
-import { length } from "./validators";
-import { currencyAmount, purchaseAmount } from "./validators";
+import { length } from "../../../app/validators";
+import { currencyAmount, purchaseAmount } from "../../../app/validators";
 
 export class WxPayAmoutDto extends AutoCastable {
     @Prop({ validate: currencyAmount, required: true, desc: '订单总金额，单位为分' })

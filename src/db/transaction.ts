@@ -1,5 +1,8 @@
+import { Also, AutoCastable, Prop } from '@naiverlabs/tskit';
+import { randomUUID } from 'crypto';
 import _ from 'lodash';
 import { ObjectId } from "mongodb";
+import { currencyAmount } from '../app/validators';
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
 
@@ -14,42 +17,100 @@ export enum TRANSACTION_STATUS {
     CLOSED = 'Closed',
 }
 
+export enum TRANSACTION_PROGRESS {
+    CREATED = 'Created',
+
+    INITIATED = 'Initiated',
+    IN_PROGRESS = 'InProgress',
+
+    COMPLETED = 'Completed',
+    ERRORED = 'Errored',
+    CLOSED = 'Closed',
+}
+
 export enum CURRENCY {
     CNY = 'CNY',
 }
 
 export enum TRANSACTION_REASON {
-    ATTEND_PAIED_ACTIVITY = '预定付费活动',
-    ATTEND_FREE_ACTIVITY = '预定免费活动',
-    
-    GOODS_PURCHASE = '购买物品',
-    MEMBERSHIP_PURCHASE = '购买会员',
+    EVENT_TICKET_PURCHASE = 'eventTicket',
+    GOODS_PURCHASE = 'goodsPurchase',
+    MEMBERSHIP_PURCHASE = 'membershipPurchase',
 
 }
 
-export interface Transaction {
-    _id: ObjectId;
+@Also({ dictOf: Object })
+export class WxSpecificTransactionDetails extends AutoCastable {
+    @Prop({ required: true })
+    merchId!: string;
 
-    uuid: string;
+    @Prop({ required: true })
+    appId!: string;
 
-    title: string;
-    reason: TRANSACTION_REASON;
+    @Prop({ required: true })
+    openId!: string;
 
-    merchId: ObjectId | string | number;
+    @Prop({ required: true, validate: currencyAmount })
+    currencyAmount!: number;
 
-    fromUser: ObjectId;
+    @Prop({ required: true })
+    wxTransactionId!: string;
 
-    currencyAmount: number;
-    currencyType: CURRENCY;
+    @Prop({ default: TRANSACTION_PROGRESS.CREATED, type: TRANSACTION_PROGRESS })
+    progress!: TRANSACTION_PROGRESS;
 
-    status: TRANSACTION_STATUS;
+    @Prop()
+    wxResult?: {[k: string]: any};
 
-    tags: string[];
+    @Prop()
+    createdAt?: Date;
 
-    [k: string]: any;
+    @Prop()
+    updatedAt?: Date;
 
-    createdAt: Date;
-    updatedAt: Date;
+    @Prop()
+    initiatedAt?: Date;
+
+    @Prop()
+    completedAt?: Date;
+
+    @Prop()
+    wxMsgTemplateId?: string;
+}
+
+export class Transaction extends AutoCastable {
+    @Prop({ defaultFactory: () => new ObjectId() })
+    _id!: ObjectId;
+
+    @Prop({ defaultFactory: () => randomUUID() })
+    uuid!: string;
+
+    @Prop({ required: true })
+    title!: string;
+
+    @Prop({ required: true, type: TRANSACTION_REASON })
+    reason!: TRANSACTION_REASON;
+
+    @Prop({ required: true })
+    fromUser!: ObjectId;
+
+    @Prop()
+    wxPay?: WxSpecificTransactionDetails;
+
+    @Prop({ default: CURRENCY.CNY })
+    currencyType!: CURRENCY;
+
+    @Prop({ default: TRANSACTION_STATUS.CREATED, type: TRANSACTION_STATUS })
+    status!: TRANSACTION_STATUS;
+
+    @Prop({ default: [] })
+    tags!: string[];
+
+    @Prop()
+    createdAt?: Date;
+
+    @Prop()
+    updatedAt?: Date;
 }
 
 

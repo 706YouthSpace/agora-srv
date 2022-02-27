@@ -1,14 +1,7 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
 import { URL } from "url";
-
-export enum SITE_TYPE {
-    BASE = '706Owned',
-    LIFE_LAB = '706LifeLab',
-    SHARED_LIVING_ROOM = '706SharedLivingroom',
-    PUBLIC_PLACES = 'public',
-    PRIVATE_PLACES = 'private'
-}
+import { SITE_TYPE } from "../../db/site";
 
 export function wxGcj02LongitudeLatitude(input: [number, number]) {
     if (input.length !== 2) {
@@ -45,9 +38,10 @@ export class DraftSite extends Dto {
     name?: string;
 
     @Prop({
-        type: SITE_TYPE
+        type: SITE_TYPE,
+        default: SITE_TYPE.BASE
     })
-    type?: SITE_TYPE;
+    type!: SITE_TYPE;
 
 
     @Prop({
@@ -67,18 +61,19 @@ export class DraftSite extends Dto {
 
     @Prop({
         arrayOf: Number,
-        validateArray: wxGcj02LongitudeLatitude
+        validateCollection: wxGcj02LongitudeLatitude
     })
     locationCoord?: [number, number];
 
     @Prop()
     locationGB2260?: string;
 
-    @Prop({
+    @Prop<string[]>({
         arrayOf: String,
-        validate: reasonableText
+        validate: reasonableText,
+        default: []
     })
-    tags?: string[];
+    tags!: string[];
 }
 
 export class DraftSiteForCreation extends DraftSite {

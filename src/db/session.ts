@@ -1,16 +1,23 @@
 import _ from 'lodash';
 import { ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
+import { AutoCastable, Prop, Also } from '@naiverlabs/tskit';
+
 import { MongoCollection } from './base';
 
-export interface Session {
-    _id: ObjectId;
+@Also({ dictOf: Object })
+export class Session extends AutoCastable {
+
+    @Prop({ defaultFactory: () => new ObjectId() })
+    _id!: ObjectId;
 
     [k: string]: any;
 
-    createdAt: Date;
-    updatedAt: Date;
+    @Prop()
+    createdAt?: Date;
 
+    @Prop()
+    updatedAt?: Date;
 }
 
 
@@ -19,9 +26,8 @@ export class MongoSession extends MongoCollection<Session> {
     collectionName = 'sessions';
 
     clear(_id: ObjectId) {
-        return this.collection.deleteOne({ _id });
+        return this.deleteOne({ _id });
     }
-    
 
 }
 

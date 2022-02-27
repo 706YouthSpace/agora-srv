@@ -4,9 +4,6 @@ import request from 'request';
 import xml2js from 'xml2js';
 import _ from 'lodash';
 
-import {
-    Defer
-} from '../../lib/defer';
 
 import {
     wxOpenPlatformSignatureSha1, wxOpenPlatformDecryptB64, wxOpenPlatformEncryptB64,
@@ -16,10 +13,9 @@ import {
 const logger = console;
 
 import { wxErrors } from './wx-errors';
-import { retry } from '../../lib/retry-decorator';
 import { Readable } from 'stream';
 import { singleton } from 'tsyringe';
-import { AsyncService, ApplicationError } from '@naiverlabs/tskit';
+import { AsyncService, ApplicationError, Defer, retry } from '@naiverlabs/tskit';
 import { Config } from '../../config';
 
 import * as inf from './interface';
@@ -37,11 +33,11 @@ const MAX_TRIES_TWO = 2;
 // const ACCESS_TOKEN = 'access-token';
 
 export class WxPlatformError extends ApplicationError {
-    err: inf.WeChatErrorReceipt;
+    wxErr: inf.WeChatErrorReceipt;
     localKnowledge?: string;
     constructor(err: inf.WeChatErrorReceipt) {
-        super(40004, err);
-        this.err = err;
+        super(40005, err);
+        this.wxErr = err;
         if (err.errcode) {
             this.localKnowledge = wxErrors[err.errcode];
         }
@@ -74,7 +70,7 @@ export class WxPlatformService extends AsyncService {
     retryInterval: number = RETRY_INTERVAL_MS;
     timeout: number = OPERATION_TIMEOUT_MS;
 
-    config: WxConfig;
+    wxConfig!: WxConfig;
 
     storage: Map<string, any> = new Map();
 
@@ -84,96 +80,24 @@ export class WxPlatformService extends AsyncService {
     } = {};
 
     constructor(
-        config: Config
+        private config: Config
     ) {
         super(...arguments);
 
-        const wxConfig = config.wechat;
+        this.init().then(() => this.emit('ready'));
+    }
+
+    override async init() {
+        await this.dependencyReady();
+
+        const wxConfig = this.config.get('wechat');
 
         if (!wxConfig) {
             throw new TypeError('Invalid use of WxPlatformService');
         }
 
-        this.config = wxConfig;
-
-        this.init().then(() => this.emit('ready'));
+        this.wxConfig = wxConfig;
     }
-
-    async init() {
-    }
-
-    // _makeComonentAccessTicketClass() {
-    //     const key = 'ComponentVerifyTicketClass';
-    //     if (this.storage.has(key)) {
-    //         return this.storage.get(key);
-    //     }
-    //     class ComponentAccessTicket extends SharedState {
-    //         constructor() {
-    //             super();
-    //             this.on('error', (err) => {
-    //                 logger.error('ComponentVerifiyTicket Error', err);
-    //             });
-    //         }
-
-    //         next() {
-    //             throw new Error('ComponentVerifyTicket could only be received from Wechat. Nothing we could do.');
-    //         }
-    //     }
-
-    //     this.storage.set(key, ComponentAccessTicket);
-
-    //     return ComponentAccessTicket;
-    // }
-
-    // _makeComonentAccessTokenClass() {
-    //     const key = 'ComponentAccessTokenClass';
-    //     if (this.storage.has(key)) {
-    //         return this.storage.get(key);
-    //     }
-    //     const componentAccessTicket = this.sharedState.create(this._makeComonentAccessTicketClass(), this._keyof(COMPONENT_VERIFY_TICKET));
-    //     // tslint:disable-next-line: no-this-assignment
-    //     const wxService = this;
-    //     class ComponentAccessToken extends SharedState {
-    //         async next() {
-
-    //             const currentTicket = await componentAccessTicket.value;
-    //             const newTokenReceipt = await wxService.getComponentAccessToken(currentTicket);
-
-    //             return {
-    //                 value: newTokenReceipt.component_access_token,
-    //                 expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
-    //             };
-    //         }
-    //     }
-
-    //     this.storage.set(key, ComponentAccessToken);
-
-    //     return ComponentAccessToken;
-    // }
-
-    // _makeAccessTokenClass() {
-    //     const key = 'AccessTokenClass';
-    //     if (this.storage.has(key)) {
-    //         return this.storage.get(key);
-    //     }
-    //     // tslint:disable-next-line: no-this-assignment
-    //     const wxService = this;
-    //     // tslint:disable-next-line: max-classes-per-file
-    //     class AccessToken extends SharedState {
-    //         async next() {
-    //             const newTokenReceipt = await wxService.getAccessToken();
-
-    //             return {
-    //                 value: newTokenReceipt.access_token,
-    //                 expiresAt: Date.now() + newTokenReceipt.expires_in * 1000 - SAFTY_PADDING_MS
-    //             };
-    //         }
-    //     }
-
-    //     this.storage.set(key, AccessToken);
-
-    //     return AccessToken;
-    // }
 
     _keyof(key: string, clientAppId?: string) {
         if (clientAppId) {

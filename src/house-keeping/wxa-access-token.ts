@@ -1,5 +1,5 @@
 import { Config } from "../config";
-import { HouseKeeperMongoConfig } from "../db/house-keeper-config";
+import { MongoLiveConfig } from "../db/live-config";
 import { AsyncService, retry } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { WxConfig, WxPlatformService } from "../services/wechat/wx-platform";
@@ -14,14 +14,12 @@ interface WxaConf {
 export class WxaAccessTokenAgent extends AsyncService {
 
     wxConfig: WxConfig;
-
-
     wxaConfigKey: string;
 
     timer?: NodeJS.Timer;
 
     constructor(
-        protected houseKeepingConfig: HouseKeeperMongoConfig,
+        protected mongoLiveConfig: MongoLiveConfig,
         protected config: Config,
         protected wxPlatform: WxPlatformService
     ) {
@@ -46,7 +44,7 @@ export class WxaAccessTokenAgent extends AsyncService {
             this.routine(wxaConf);
         });
 
-        const wxaConf = this.houseKeepingConfig.localGet(this.wxaConfigKey) as any;
+        const wxaConf = this.mongoLiveConfig.localGet(this.wxaConfigKey) as any;
 
         this.routine(wxaConf);
 
@@ -58,13 +56,13 @@ export class WxaAccessTokenAgent extends AsyncService {
     async refreshAccessToken() {
         const result = await this.wxPlatform.getAccessToken(this.wxConfig.appId, this.wxConfig.appSecret);
 
-        const conf = this.houseKeepingConfig.localGet(this.wxaConfigKey) || {};
+        const conf = this.mongoLiveConfig.localGet(this.wxaConfigKey) || {};
 
         conf.appId = this.wxConfig.appId;
         conf.accessToken = result;
         conf.accessTokenExpiresBefore = new Date(Date.now() + result.expires_in * 1000 * 0.9);
 
-        this.houseKeepingConfig.set(this.wxaConfigKey, conf);
+        this.mongoLiveConfig.set(this.wxaConfigKey, conf);
 
         return conf;
     }

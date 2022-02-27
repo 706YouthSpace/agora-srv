@@ -1,18 +1,8 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
+import { EVENT_SENSOR_STATUS, EVENT_TYPE } from "../../db/event";
 // import { URL } from "url";
 //import { PersonalInfo } from "db/activity";
-
-export enum ACT_TYPE {
-    PUBLIC_ACT = 'public',
-    PRIVATE_ACT = 'private'
-}
-
-export enum VERIFIED_STATUS {
-    DRAFT= 'draft',
-    PASSED= 'passed',
-    REJECTED= 'rejected'
-}
 
 export function wxGcj02LongitudeLatitude(input: [number, number]) {
     if (input.length !== 2) {
@@ -41,13 +31,13 @@ export function reasonableText(input: string) {
 }
 
 
-export class DraftActivity extends Dto {
+export class DraftEvent extends Dto {
 
     @Prop({
-        validate: reasonableText
+        validate: reasonableText,
+        required: true
     })
-    title?: string;
-
+    title!: string;
 
     @Prop()
     subtitle?: string;
@@ -56,44 +46,38 @@ export class DraftActivity extends Dto {
     detail?: string;
 
     @Prop({
-        type: ACT_TYPE
+        type: EVENT_TYPE,
+        default: EVENT_TYPE.PUBLIC
     })
-    type?: ACT_TYPE;
+    type!: EVENT_TYPE;
 
 
-    @Prop()
-    image?: string;
+    @Prop({ type: [ObjectId, URL] })
+    image?: ObjectId | URL;
 
 
-    @Prop({arrayOf: String})
-    images?: string[];
-
+    @Prop({ arrayOf: [ObjectId, URL] })
+    images?: Array<ObjectId | URL>;
 
     @Prop()
     locationText?: string;
 
     @Prop({
         arrayOf: Number,
-        validateArray: wxGcj02LongitudeLatitude
+        validateCollection: wxGcj02LongitudeLatitude
     })
     locationCoord?: [number, number];
 
     @Prop()
     locationGB2260?: string;
 
-    @Prop({
-        type: ObjectId
-    })
-    site?: ObjectId;
+    @Prop({ required: true })
+    site!: ObjectId;
 
-    @Prop({
-        type: Number
-    })
+    @Prop()
     participantCap?: number;
 
-    @Prop({
-        type: Number
-    })
+    @Prop()
     pricing?: number;
 
     @Prop({
@@ -109,9 +93,9 @@ export class DraftActivity extends Dto {
     collectFromParticipants?: string[];
 
     @Prop({
-        type: [String, ObjectId]
+        type: [ObjectId, URL]
     })
-    qrImage?: string | ObjectId;
+    qrImage?: ObjectId | URL;
 
     @Prop({
         type: Date
@@ -124,37 +108,21 @@ export class DraftActivity extends Dto {
     endAt?: Date;
 
     @Prop({
-        type: VERIFIED_STATUS,
-        default: VERIFIED_STATUS.DRAFT
+        type: EVENT_SENSOR_STATUS,
+        default: EVENT_SENSOR_STATUS.PENDING
     })
-    verified?: VERIFIED_STATUS;
+    verified?: EVENT_SENSOR_STATUS;
 
     @Prop({
-        type: ObjectId
+        type: ObjectId,
+        required: true
     })
     creator!: ObjectId
 
     @Prop({
-        arrayOf: String
+        arrayOf: String,
+        default: []
     })
-    templateId!: string[];
+    wxMsgTemplateIds!: string[];
 }
 
-export class DraftActivityForCreation extends DraftActivity {
-    @Prop({
-        validate: reasonableText //, required: true
-    })
-    title!: string;
-
-    @Prop({
-        type: ACT_TYPE,
-        default: ACT_TYPE.PUBLIC_ACT
-    })
-    type!: ACT_TYPE;
-
-    @Prop({
-        arrayOf: String
-    })
-    templateId!: string[];
-
-}

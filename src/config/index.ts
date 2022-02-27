@@ -4,6 +4,7 @@ import { singleton } from 'tsyringe';
 import dev from './dev';
 import prod from './prod';
 import local from './local';
+import _ from 'lodash';
 
 const envMap: any = {
     dev,
@@ -22,6 +23,10 @@ export class Config extends AsyncService {
 
         Object.assign(this, { ...config });
         this.emit('ready', this);
+    }
+
+    get(key: string) {
+        return _.get(this, key);
     }
 }
 

@@ -1,12 +1,13 @@
-import { RPCHost } from "@naiverlabs/tskit";
+import { RequestedEntityNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
-import _ from "lodash";
-import { Pick, RPCMethod } from "./civi-rpc";
-import { MongoSite, Site } from "../db/site";
-import { MongoActivities } from "../db/activity";
-import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { ObjectId } from "bson";
 import { URL } from "url";
+import _ from "lodash";
+
+import { Pick, RPCMethod } from "./civi-rpc";
+import { MongoSite, Site, SITE_TYPE } from "../db/site";
+import { MongoEvent, EVENT_SENSOR_STATUS } from "../db/event";
+import { DraftSiteForCreation, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
 import { GB2260 } from "../lib/gb2260";
 import { MongoUser } from "../db/user";
@@ -17,14 +18,13 @@ enum GB2260GRAN {
     COUNTY = 'county'
 }
 
-
 @singleton()
 export class SiteRPCHost extends RPCHost {
 
     constructor(
         protected mongoSite: MongoSite,
         protected gb2260: GB2260,
-        protected mongoActivity: MongoActivities,
+        protected mongoEvent: MongoEvent,
         protected mongoUser: MongoUser
     ) {
         super(...arguments);
@@ -55,20 +55,9 @@ export class SiteRPCHost extends RPCHost {
 
     @RPCMethod('site.create')
     async create(draft: DraftSiteForCreation) {
+        const site = Site.from<Site>(draft);
 
-        const draftSite = {
-            name: draft.name,
-            type: draft.type,
-            tags: draft.tags,
-            image: this.convertURLOrObjId(draft.image),
-            images: draft.images?.map((x) => this.convertURLOrObjId(x)!).filter(Boolean),
-
-            locationGB2260: draft.locationGB2260,
-            locationText: draft.locationText,
-            locationCoord: draft.locationCoord
-        }
-
-        const r = await this.mongoSite.create(draftSite);
+        const r = await this.mongoSite.create(site);
 
         return r;
     }
@@ -80,7 +69,7 @@ export class SiteRPCHost extends RPCHost {
         @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
         @Pick('location') locationText?: string,
         @Pick('locationGB2260') locationGB2260?: string,
-        @Pick('locationNear', { arrayOf: Number, validateArray: wxGcj02LongitudeLatitude })
+        @Pick('locationNear', { arrayOf: Number, validateCollection: wxGcj02LongitudeLatitude })
         locationNear?: [number, number],
         @Pick('distance', { arrayOf: Number, validate: (x: number) => x > 0 })
         distance?: number,
@@ -138,24 +127,29 @@ export class SiteRPCHost extends RPCHost {
     async get(
         @Pick('id') id: ObjectId
     ) {
-        const result = await this.mongoSite.get(id) as Site;
-        const query = {
-            site: id,
-            verified: 'passed'
+        const site = await this.mongoSite.get(id) as Site;
+
+        if (!site) {
+            throw new RequestedEntityNotFoundError(`Site with id ${id} not found`);
         }
-        const activities = await this.mongoActivity.collection.find(query)
-        .sort({ createdAt: -1 })
-        .limit(20)
-        .toArray()
 
-        const creator = result.creator && await this.mongoUser.get(result.creator)
+        const eventQuery = {
+            site: site._id,
+            status: EVENT_SENSOR_STATUS.PASSED
+        }
+        const activities = await this.mongoEvent.simpleFind(eventQuery, {
+            sort: { createdAt: -1 },
+            limit: 20
+        });
 
-        const resultData = Object.assign(result, {
+        const creator = site.creator ? await this.mongoUser.get(site.creator) : undefined;
+
+        return {
+            ...site,
+
             activities,
             creator
-        })
-
-        return resultData;
+        };
     }
 
     @RPCMethod('site.gb2260.get')

@@ -1,22 +1,18 @@
-
 import _ from 'lodash';
 import { Context } from 'koa';
 import Busboy from 'busboy';
 
-import { FancyFile, Defer, TimeoutError, parseContentType, MIMEVec, ApplicationError } from '@naiverlabs/tskit';
-import tempFileManager from '../../services/tmp-file';
+import {
+    DataStreamBrokenError, FancyFile, Defer,
+    TimeoutError, parseContentType, MIMEVec
+} from '@naiverlabs/tskit';
+
+import tempFileManager from '../../services/temp';
 import globalLogger from '../../services/logger';
 
-export class DataStreamBrokenError extends ApplicationError {
-    constructor(detail?: any) {
-        super(40003, detail);
-        this.readableMessage = `DataStreamBroken: ${this.message} ${JSON.stringify(this.detail)}`;
-    }
-}
-
-
 export type ParsedContext = Context & {
-    request: { body: { [key: string]: any } };
+    request: { body: { [key: string]: any; }; };
+    files: UploadedFile[];
 };
 
 export type UploadedFile = FancyFile & {
@@ -26,17 +22,13 @@ export type UploadedFile = FancyFile & {
     claimedMime?: string;
 };
 
-export interface ContextFileUtils {
-    files: UploadedFile[];
-}
-
 // globalLogger is an async service. so it needs to be a Promise.
 const bodyParserLoggerPromise = (async () => {
     await globalLogger.serviceReady();
     return globalLogger.child({ service: 'bodyParser' });
 })();
 
-export async function multiParse(ctx: ParsedContext & ContextFileUtils, next: () => Promise<void>) {
+export async function multiParse(ctx: Context, next: () => Promise<void>) {
     if (
         !ctx.request.header['content-type'] ||
         !(ctx.request.header['content-type'].indexOf('multipart/form-data') >= 0)
@@ -50,8 +42,12 @@ export async function multiParse(ctx: ParsedContext & ContextFileUtils, next: ()
 
     const boy = new Busboy({
         headers: ctx.headers,
-        limits: { fieldNameSize: 1024, fieldSize: 1024 * 1024 * 2 },
+        limits: {
+            fieldNameSize: 1024,
+            fieldSize: 1024 * 1024 * 2,
+        },
     });
+
     const allFiles: UploadedFile[] = [];
     if (!ctx.request.body) {
         ctx.request.body = {
@@ -61,42 +57,53 @@ export async function multiParse(ctx: ParsedContext & ContextFileUtils, next: ()
 
     ctx.files = allFiles;
 
-    boy.on('field', (_fieldName, val, _fieldNameTruncated, _valTruncated, _transferEncoding, _mimeType) => {
-        const fieldName = decodeURIComponent(_fieldName);
-        if (fieldName.endsWith('[]')) {
-            const realFieldName = fieldName.slice(0, fieldName.length - 2);
+    boy.on('field', (fieldName, val, _fieldNameTruncated, _valTruncated, _transferEncoding, mimeType) => {
+        const decodedFieldName = decodeURIComponent(fieldName);
+        let parsedVal = val;
+        if (mimeType.startsWith('application/json')) {
+            try {
+                parsedVal = JSON.parse(val);
+            } catch (_err) {
+                // swallow for now
+                // logger.warn({ err: err, fieldName, val }, 'Failed to parse JSON');
+            }
+        }
+
+        if (decodedFieldName.endsWith('[]')) {
+            const realFieldName = decodedFieldName.slice(0, decodedFieldName.length - 2);
             if (Array.isArray(ctx.request.body[realFieldName])) {
-                ctx.request.body[realFieldName].push(val);
+                ctx.request.body[realFieldName].push(parsedVal);
             } else {
-                ctx.request.body[realFieldName] = [val];
+                ctx.request.body[realFieldName] = [parsedVal];
             }
         } else {
-            ctx.request.body[fieldName] = val;
+            ctx.request.body[decodedFieldName] = parsedVal;
         }
     });
 
-    boy.on('file', (_fieldName, fileStream, fileName, _transferEncoding, mimeType) => {
+    boy.on('file', (fieldName, fileStream, fileName, _transferEncoding, mimeType) => {
         const file: UploadedFile = tempFileManager.cacheReadable(fileStream as any, fileName);
-        const fieldName = decodeURIComponent(_fieldName);
-        file.field = fieldName;
+        const decodedFieldName = decodeURIComponent(fieldName);
+        file.field = decodedFieldName;
         file.claimedName = fileName;
         file.claimedMime = mimeType;
         file.claimedContentType = parseContentType(mimeType);
-        if (fieldName.endsWith('[]')) {
-            const realFieldName = fieldName.slice(0, fieldName.length - 2);
+
+        if (decodedFieldName.endsWith('[]')) {
+            const realFieldName = decodedFieldName.slice(0, decodedFieldName.length - 2);
             if (Array.isArray(ctx.request.body[realFieldName])) {
                 ctx.request.body[realFieldName].push(file);
             } else {
                 ctx.request.body[realFieldName] = [file];
             }
         } else {
-            ctx.request.body[fieldName] = file;
+            ctx.request.body[decodedFieldName] = file;
         }
         allFiles.push(file);
     });
 
     const deferred = Defer();
-    const deleationOfFiles = () => {
+    const deletionOfFiles = () => {
         return Promise.all(allFiles.map((x) => x.unlink()));
     };
     boy.once('finish', () => {
@@ -104,7 +111,7 @@ export async function multiParse(ctx: ParsedContext & ContextFileUtils, next: ()
     });
 
     boy.once('error', (err: Error) => {
-        deleationOfFiles().catch(logger.warn);
+        deletionOfFiles().catch(logger.warn);
         deferred.reject(new DataStreamBrokenError(err));
     });
 
@@ -113,17 +120,21 @@ export async function multiParse(ctx: ParsedContext & ContextFileUtils, next: ()
     await deferred.promise;
 
     try {
-        await next();
-
-        return;
+        return await next();
     } finally {
-        deleationOfFiles().catch(logger.warn);
+        if (ctx.res.writable) {
+            ctx.res.once('close', () => {
+                deletionOfFiles().catch(logger.warn);
+            });
+        } else {
+            deletionOfFiles().catch(logger.warn);
+        }
     }
 }
 
-const RECIEVE_TIMEOUT = 5 * 60 * 1000;
+const RECEIVE_TIMEOUT = 5 * 60 * 1000;
 
-export async function binaryParse(ctx: ParsedContext & ContextFileUtils, next: () => Promise<void>) {
+export async function binaryParse(ctx: Context, next: () => Promise<void>) {
     if (!_.isEmpty(ctx.request.body)) {
         return next();
     }
@@ -138,8 +149,8 @@ export async function binaryParse(ctx: ParsedContext & ContextFileUtils, next: (
     const cachedFile = tempFileManager.cacheReadable(ctx.req) as UploadedFile;
     if (useTimeout) {
         const timer = setTimeout(() => {
-            ctx.req.destroy(new TimeoutError(`Unbounded request timedout after ${RECIEVE_TIMEOUT} ms`));
-        }, RECIEVE_TIMEOUT);
+            ctx.req.destroy(new TimeoutError(`Unbounded request timedout after ${RECEIVE_TIMEOUT} ms`));
+        }, RECEIVE_TIMEOUT);
 
         ctx.req.once('end', () => clearTimeout(timer));
     }
@@ -156,12 +167,8 @@ export async function binaryParse(ctx: ParsedContext & ContextFileUtils, next: (
     ctx.files = ctx.request.body.__files;
 
     try {
-        await next();
+        return await next();
+    } finally {
         cachedFile.unlink().catch(logger.warn);
-
-        return;
-    } catch (err) {
-        cachedFile.unlink().catch(logger.warn);
-        throw err;
     }
 }

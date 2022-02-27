@@ -1,28 +1,48 @@
 import _ from 'lodash';
 import { ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
+import { AutoCastable, Prop } from '@naiverlabs/tskit';
+
 import { MongoCollection } from './base';
 
-export interface FileRecord {
-    _id: ObjectId;
+export enum FILE_OWNER_TYPE {
+    USER = 'user',
+    SYSTEM = 'system',
+}
+export class FileRecord extends AutoCastable {
+    @Prop({ defaultFactory: () => new ObjectId() })
+    _id!: ObjectId;
 
-    owner: ObjectId;
-    ownerType: string;
+    @Prop({ required: true })
+    owner!: ObjectId;
 
-    sha256SumHex: string;
+    @Prop({ type: FILE_OWNER_TYPE, default: FILE_OWNER_TYPE.USER })
+    ownerType!: FILE_OWNER_TYPE;
 
-    name: string;
+    @Prop({ required: true })
+    sha256Hex!: string;
 
+    @Prop({ required: true })
+    name!: string;
+
+    @Prop()
     mimeType?: string;
+
+    @Prop()
     size?: number;
 
+    @Prop({ dictOf: Object })
     properties?: {
         [k: string]: any;
     }
 
-    createdAt: Date;
-    updatedAt: Date;
+    @Prop()
+    createdAt?: Date;
 
+    @Prop()
+    updatedAt?: Date;
+
+    @Prop()
     blocked?: boolean;
 }
 

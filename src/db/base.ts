@@ -1,69 +1,32 @@
-import { MongoHandle } from "../lib/mongodb/collection";
 import _ from "lodash";
-import { ObjectId, Document } from "mongodb";
-import { deepCreate, vectorize } from "@naiverlabs/tskit";
-import { MongoDB } from "./client";
-import { InjectProperty } from "../lib/property-injector";
+import { ObjectId, Document, MongoClientOptions } from "mongodb";
+import { singleton, container } from 'tsyringe';
+import { AbstractMongoCollection, AbstractMongoDB } from '@naiverlabs/tskit';
 
-export abstract class MongoCollection<T extends Document, P = ObjectId> extends MongoHandle<T> {
+import { InjectProperty } from "../services/property-injector";
+import { Config } from '../config';
+
+export abstract class MongoCollection<T extends Document, P = ObjectId> extends AbstractMongoCollection<T, P> {
 
     @InjectProperty()
     mongo!: MongoDB;
 
-    typeclass: undefined;
-
-    async getForModifaction(_id: P) {
-        const r = await this.get(_id);
-
-        if (!r) {
-            return r;
-        }
-
-        return deepCreate(r);
-    }
-
-    async get(_id: P) {
-        const r = await this.collection.findOne({ _id });
-
-        return r;
-    }
-
-    async getAll() {
-        const r = await this.collection.find({});
-
-        return r;
-    }
-
-    async create(data: Partial<T>) {
-        const now = new Date();
-        const doc: any = { ...data, createdAt: now, updatedAt: now };
-        const r = await this.collection.insertOne(doc);
-
-        doc._id = r.insertedId;
-
-        return r as any as T;
-    }
-
-
-    set(_id: P, data: Partial<T>) {
-        const now = new Date();
-        return this.collection.findOneAndUpdate(
-            { _id },
-            { $set: vectorize({ ...data, updatedAt: now }), $setOnInsert: { createdAt: now } } as any,
-            { upsert: true }
-        );
-    }
-
-    save(data: Partial<T> & { _id: P }) {
-        return this.set(data._id, _.omit(data, '_id') as any)
-    }
-
-    clear(_id: P) {
-        return this.collection.deleteOne({ _id });
-    }
-
-    del(_id: P) {
-        return this.collection.deleteOne({ _id });
-    }
+    typeclass: any = undefined;
 
 }
+
+@singleton()
+export class MongoDB extends AbstractMongoDB {
+    options?: MongoClientOptions;
+    url: string;
+
+    constructor(config: Config) {
+        super(...arguments);
+        this.options = config.mongoOptions;
+        this.url = config.mongoUrl;
+    }
+}
+
+export const mongoClient = container.resolve(MongoDB);
+
+export default mongoClient;

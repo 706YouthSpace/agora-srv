@@ -1,9 +1,9 @@
 
 
 import { MongoClient, MongoClientOptions, Db } from 'mongodb';
-import { AsyncService } from '@naiverlabs/tskit';
+import { AbstractMongoDB } from '@naiverlabs/tskit';
 
-export abstract class AbstractMongoDB extends AsyncService {
+export abstract class MongoDB extends AbstractMongoDB {
     client!: MongoClient;
     db!: Db;
     abstract url: string;

@@ -59,7 +59,7 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
             }
 
             const ts = Math.floor(Date.now() / 1000);
-            const nonce = randomBytes(16).toString('ascii').toUpperCase();
+            const nonce = randomBytes(16).toString('hex').toUpperCase();
             const signatureP1 = `${config.method?.toUpperCase() || 'GET'}\n${config.url?.replace(this.baseURL.origin, '')}\n${ts}\n${nonce}\n`;
 
             const bytesToSign = Buffer.concat([Buffer.from(signatureP1, 'utf-8'), bodyBuff, Buffer.from('\n', 'utf-8')]);

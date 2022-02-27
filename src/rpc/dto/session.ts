@@ -1,11 +1,12 @@
 import { MongoSession } from "../../db/session";
 import { ObjectId } from "mongodb";
-import { Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta, Dto } from "@naiverlabs/tskit";
+import { Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta, Dto, AuthenticationRequiredError, AuthenticationFailedError } from "@naiverlabs/tskit";
 import { decodeBase64UrlSafe, encodeBase64UrlSafe } from "../../lib/binary";
 import { isIPv4 } from "net";
 import { IncomingMessage } from "http";
 import { URL } from "url";
 import { InjectProperty } from "../../lib/property-injector";
+import { MongoUser, User } from "db/user";
 
 export const SESSION_TOKEN_HEADER_NAME = 'X-Session-Token';
 export const SET_SESSION_TOKEN_HEADER_NAME = 'X-Set-Session-Token';
@@ -87,8 +88,13 @@ export class Session extends Dto<ContextLike> {
     __isNew: boolean = false;
     data?: { [k: string]: any };
 
+    user?: User;
+
     @InjectProperty()
     protected mongoSession!: MongoSession;
+
+    @InjectProperty()
+    protected mongoUser!: MongoUser;
 
     @Prop({
         validate: validSessionToken
@@ -105,7 +111,7 @@ export class Session extends Dto<ContextLike> {
 
         await this.mongoSession.serviceReady();
 
-        this.data = await this.mongoSession.getForModifaction(this.sessionId) || {};
+        this.data = await this.mongoSession.getForModification(this.sessionId) || {};
 
         this.__fetched = true;
 
@@ -164,6 +170,26 @@ export class Session extends Dto<ContextLike> {
 
     metaSetToken<T extends object>(tgt: T) {
         return assignMeta(tgt, { sessionToken: this.sessionToken });
+    }
+
+    async assertUser() {
+        if (this.user) {
+            return this.user;
+        }
+
+        await this.fetch();
+
+        if (!this.data?.user) {
+            throw new AuthenticationRequiredError({ message: 'User login required' });
+        }
+
+        this.user = await this.mongoUser.findOne({ _id: this.data.user });    
+
+        if (!this.user) {
+            throw new AuthenticationFailedError({ message: 'Please re-login' });
+        }
+
+        return this.user;
     }
 
 }

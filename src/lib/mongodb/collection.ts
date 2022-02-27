@@ -1,9 +1,9 @@
 import { Collection } from "mongodb";
-import { AsyncService } from "@naiverlabs/tskit";
+import { AsyncService, AbstractMongoCollection } from "@naiverlabs/tskit";
 import { AbstractMongoDB } from "./client";
 
 
-export abstract class MongoHandle<T> extends AsyncService {
+export abstract class MongoHandle<T extends object> extends AbstractMongoCollection<T> {
 
 
     abstract collectionName: string;
@@ -15,8 +15,8 @@ export abstract class MongoHandle<T> extends AsyncService {
         super(...whatever);
 
 
-        if ((this as any).mongo && !this.__dependencies.includes((this as any).mongo)) {
-            this.__dependencies.push((this as any).mongo);
+        if ((this as any).mongo && !this.__dependencies.has((this as any).mongo)) {
+            this.__dependencies.add((this as any).mongo);
         }
 
         setImmediate(() => this.init().then(() => this.emit('ready')));

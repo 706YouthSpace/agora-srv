@@ -1,28 +1,51 @@
+import { AutoCastable, Prop } from '@naiverlabs/tskit';
 import _ from 'lodash';
 import { ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
 
-export interface Site {
-    _id: ObjectId;
+export enum SITE_TYPE {
+    BASE = '706Owned',
+    LIFE_LAB = '706LifeLab',
+    SHARED_LIVING_ROOM = '706SharedLivingroom',
+    PUBLIC_PLACES = 'public',
+    PRIVATE_PLACES = 'private'
+}
+export class Site extends AutoCastable {
+    @Prop({ defaultFactory: () => new ObjectId() })
+    _id!: ObjectId;
 
-    name: string;
-    type: string;
+    @Prop({ required: true })
+    name!: string;
 
+    @Prop({ required: true, type: SITE_TYPE })
+    type!: SITE_TYPE;
+
+    @Prop({ type: [ObjectId, String] })
     image?: string | ObjectId;
+
+    @Prop({ arrayOf: [ObjectId, String] })
     images?: Array<string | ObjectId>;
 
+    @Prop()
     locationText?: string;
+    @Prop({ arrayOf: [Number], validateCollection: (val: number[]) => val.length === 2 })
     locationCoord?: [number, number];
+
+    @Prop()
     locationGB2260?: string;
 
-    tags: string[];
+    @Prop({ default: [], arrayOf: String })
+    tags!: string[];
 
-    [k: string]: any;
+    @Prop()
+    creator?: ObjectId;
 
-    createdAt: Date;
-    updatedAt: Date;
-    creator: ObjectId;
+    @Prop()
+    createdAt?: Date;
+
+    @Prop()
+    updatedAt?: Date;
 }
 
 
