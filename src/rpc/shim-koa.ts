@@ -48,6 +48,7 @@ export async function shimControllerForKoa(ctx: Context, next: (err?: Error) => 
 
     let methodId;
     const pathName = ctx.request.URL.pathname;
+
     if (pathName === '/rpc') {
         methodId = ctx.query.method;
     } else if (pathName.startsWith('/api')) {
@@ -58,6 +59,12 @@ export async function shimControllerForKoa(ctx: Context, next: (err?: Error) => 
         return next();
     }
 
+    console.log(methodId+": ");
+    if (methodId === 'activity.paymentNotify') {
+        console.log("ctx: ");
+        console.log(ctx);
+        console.log(ctx.request.body);
+    }
 
     try {
         const result = await rPCRegistry.exec(methodId, jointInput);

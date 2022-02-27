@@ -54,7 +54,19 @@ db.signUp.updateOne(
 )
 //  
 use("x706");
-db.signUp.find({"sent":"N"})
+db.signUp.find({"sent":"N"}) 
+ // 1645448631717
+ use("x706");
+db.signUp.find({"outTradeNo":"1645448631717"}) 
+
+use("x706");
+db.activities.updateOne(
+    { "_id" : ObjectId("6204fd02a308534f2472706f") }, // specifies the document to update
+    {
+      $set: {  "verified" : "passed" }
+    }
+)
+//  
 
 db.activities.aggregate(
                     [

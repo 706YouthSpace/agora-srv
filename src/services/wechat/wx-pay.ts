@@ -70,7 +70,10 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
                 `WECHATPAY2-SHA256-RSA2048 mchid="${this.mchId}",nonce_str="${nonce}",` +
                 `timestamp="${ts}",serial_no="${this.x509Certificate.serialNumber},signature="${signature}"`;
 
-            (config.headers as Headers).set('Authorization', authHeader);
+            if (!config.headers) {
+                config.headers = {};
+            }
+            (config.headers as any)['Authorization'] = authHeader;
 
         });
     }
@@ -215,7 +218,7 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
 
         this.emit(`notify-${data.event_type}`, resource, data);
 
-        return {   
+        return {
             code: "SUCCESS",
             message: "成功"
         };

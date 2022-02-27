@@ -16,9 +16,11 @@ import { DraftActivityForCreation, VERIFIED_STATUS } from "./dto/activity";
 import { SignUp } from "./dto/signUp";
 import { SessionUser } from "./dto/user";
 import { MongoUser, User } from "../db/user";
-import {WxPayHTTP } from "../services/wechat/wx-pay-v2";
+import {WxPayHTTPv3 as WxPayHTTP } from "../services/wechat/wx-pay-v3";
 import { config } from "../config";
 import { MongoSite } from "../db/site";
+//import { Context } from "koa";
+
 
 // enum GB2260GRAN {
 //     PROVINCE = 'province',
@@ -27,8 +29,19 @@ import { MongoSite } from "../db/site";
 // }
 @singleton()
 export class ActivityRPCHost extends RPCHost {
-    wxPayHttp:WxPayHTTP=new WxPayHTTP({ rsa2048PrivateKey: config.wechat.aesEncryptionKey ,
-                                        apiv3Key: config.wechat.appSecret}); //待调整
+    wxPayHttp:WxPayHTTP=new WxPayHTTP({ mchId:config.wechat.mchid ,
+                                        apiv3Key: config.wechat.apiv3Key,
+                                        apiclientKeyDir: config.wechat.apiclientKeyDir ,
+                                        serialNumber: config.wechat.certSerial,
+                                        platformCertificateFilePath: config.wechat.wxPayPlatformCertDir,
+                                        platformCertificateSerial:config.wechat.wxPayPlatformCertSerial,
+                                    }); //
+            // wxPayHttp:WxPayHTTP=new WxPayHTTP({ mchId:config.wechat.mchid ,
+            //                                 apiv3Key: config.wechat.apiv3Key,
+            //                                 apiclientKeyDir: config.wechat.apiclientKeyDir ,
+            //                                 serialNumber: config.wechat.certSerial,
+            //                                 platformX509CertificatesDir:[],
+            //                             }); //
     constructor(
         protected mongoActivity: MongoActivities,
         protected mongoSignUp: MongoSignUp,
@@ -407,54 +420,81 @@ export class ActivityRPCHost extends RPCHost {
             payer: {openid: openId}
 
         } ;
-        console.log(signUpId);
+        console.log("signUpId: "+signUpId);
 
-        let data=await this.wxPayHttp.createTransactionJSAPI(param);
-        console.log(data);
+        let rslt=await this.wxPayHttp.execWxPay(param)  ;//  this.wxPayHttp.createTransactionJSAPI(param);
+        //console.log(rslt);
 
-        const update = {outTradeNo:outTradeNo ,wxPrepayId:data.prepay_id };
+        const update = {outTradeNo: outTradeNo , wxPrepayId: rslt.data.prepay_id };
         await this.mongoSignUp.set(signUpId,update) ;
        
-        return data;
+        // const authorization=rslt.config.headers.Authorization ;
+        //let indexTime=authorization.indexOf("timestamp=");
+        //let indexNonce=authorization.indexOf("nonce_str=");
+        //let indexSign=authorization.indexOf("signature=");
+
+        let rt={
+                timeStamp: Math.floor(Date.now() / 1000) , // authorization.substr(indexTime+11,10),
+                nonceStr:  this.wxPayHttp.randomString(32) ,// authorization.substr(indexNonce+11,32),
+                package: "prepay_id="+rslt.data.prepay_id,
+                signType: "RSA" ,
+                paySign: "",
+        };
+        let strToSign=config.wechat.appId+'\n'+
+                        rt.timeStamp+'\n'+
+                        rt.nonceStr+'\n'+
+                        rt.package+'\n';
+        // console.log("strToSign: ");
+        // console.log(strToSign);
+        let paySignStr=this.wxPayHttp.rsaSign(strToSign,config.wechat.apiclientKeyDir); // this.wxPayHttp.doSignShellCmd(strToSign,config.wechat.apiclientKeyDir);
+        rt.paySign=paySignStr;
+        console.log("rt: ");
+        console.log(rt);
+        return rt;
     }
 
     @RPCMethod('activity.paymentNotify')
     async paymentNotify(
-        @Pick('return_code') return_code: string,
-        @Pick('return_msg') return_msg?: string,
-        @Pick('result_code') result_code?: string,
-        @Pick('err_code') err_code?: string,
-        @Pick('err_code_des') err_code_des?: string,
-        @Pick('transaction_id') transaction_id?: string,
-        @Pick('out_trade_no') out_trade_no?: string,
-        @Pick('time_end') time_end?: string
-    ) {
+        @Pick('event_type') event_type: string,
+        @Pick('summary') summary: string
         
-        if("SUCCESS"===return_code){
-            let payResult:any={}; 
-            payResult.wxPaidTimeEnd =time_end!=undefined?time_end:"" ;
-            payResult.outTradeNo = out_trade_no!=undefined?out_trade_no:"";
-            payResult.wxTransactionId = transaction_id!=undefined?transaction_id:"";
-            payResult.wxReturnCode = return_code!=undefined?return_code:"";
-            payResult.wxResultCode = result_code!=undefined?result_code:"";;
-            if("SUCCESS"===result_code){
-            }else{
-                payResult.wxErrCode =err_code!=undefined?err_code:"" ;
-                payResult.wxErrCodeDes =err_code_des!=undefined?err_code_des:"" ;
-            }
+    ) {
+    // console.log("event_type: "+event_type);
+    // console.log("summary: "+summary);
 
-            //let payResult={wxReturnCode:return_code, wxReturnMsg: return_msg };
-            await this.mongoSignUp.collection.updateOne(
-                { "outTradeNo" : payResult.outTradeNo }, // specifies the document to update
-                {
-                  $set: payResult
-                }
-            ) ;
+    // console.log("associated_data: ");
+    // console.log(resource.associated_data); 
+    // console.log("nonce: ");
+    // console.log(resource.nonce);
+    // let decryptData=this.wxPayHttp.decryptAES_GCM(config.wechat.apiv3Key,resource.ciphertext,resource.associated_data); 
+    // console.log("decryptData: ");
+    // console.log(decryptData);
+        if("TRANSACTION.SUCCESS"===event_type){
+            // let payResult:any={}; 
+            // payResult.wxPaidTimeEnd =time_end!=undefined?time_end:"" ;
+            // payResult.outTradeNo = out_trade_no!=undefined?out_trade_no:"";
+            // payResult.wxTransactionId = transaction_id!=undefined?transaction_id:"";
+            // payResult.wxReturnCode = return_code!=undefined?return_code:"";
+            // payResult.wxResultCode = result_code!=undefined?result_code:"";
 
-            let backWx={return_code:return_code };
+            // //let payResult={wxReturnCode:return_code, wxReturnMsg: return_msg };
+            // await this.mongoSignUp.collection.updateOne(
+            //     { "outTradeNo" : payResult.outTradeNo }, // specifies the document to update
+            //     {
+            //       $set: payResult
+            //     }
+            // ) ;
+
+            let backWx={   
+                "code": event_type,
+                "message": summary
+            };
             return backWx ;
         }else{
-            let errResult={return_code:return_code, return_msg: return_msg };
+            let errResult={   
+                "code": event_type,
+                "message": summary
+            };
             return errResult ;
         }
 
