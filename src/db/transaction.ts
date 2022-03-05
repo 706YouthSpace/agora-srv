@@ -10,10 +10,12 @@ import { MongoCollection } from './base';
 export enum TRANSACTION_STATUS {
     CREATED = 'Created',
 
-    PAYMENT_PENDING = 'Unpaied',
-    PAYMENT_SUCCEED = 'Paied',
+    PAYMENT_PENDING = 'Unpaid',
+    PAYMENT_SUCCEED = 'Paid',
 
     COMPLETED = 'Completed',
+    REFUNDED = 'Refunded',
+
     CLOSED = 'Closed',
 }
 
@@ -24,6 +26,9 @@ export enum TRANSACTION_PROGRESS {
     IN_PROGRESS = 'InProgress',
 
     COMPLETED = 'Completed',
+    REFUND_IN_PROGRESS = 'RefoundInProgress',
+    REFUNDED = 'Refunded',
+
     ERRORED = 'Errored',
     CLOSED = 'Closed',
 }
@@ -60,7 +65,7 @@ export class WxSpecificTransactionDetails extends AutoCastable {
     progress!: TRANSACTION_PROGRESS;
 
     @Prop()
-    wxResult?: {[k: string]: any};
+    wxResult?: { [k: string]: any };
 
     @Prop()
     createdAt?: Date;

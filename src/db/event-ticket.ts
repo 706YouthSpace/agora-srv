@@ -6,7 +6,9 @@ import { AutoCastable, Prop } from '@naiverlabs/tskit';
 
 import { MongoCollection } from './base';
 
-
+export enum TicketStatus {
+    
+}
 export class EventTicket extends AutoCastable {
 
     @Prop({ defaultFactory: () => new ObjectId() })
@@ -16,10 +18,10 @@ export class EventTicket extends AutoCastable {
     userId!: ObjectId;
 
     @Prop({ required: true })
-    activityId!: ObjectId;
+    eventId!: ObjectId;
 
-    @Prop({ required: true })
-    transactionId!: ObjectId;
+    @Prop()
+    transactionId?: ObjectId;
 
     @Prop({ dictOf: Object, default: {} })
     info!: { [key: string]: any };
@@ -33,6 +35,10 @@ export class EventTicket extends AutoCastable {
     @Prop({ required: true })
     wxAppId!: string;
 
+    @Prop()
+    createdAt?: Date;
+    @Prop()
+    updatedAt?: Date;
 }
 
 @singleton()

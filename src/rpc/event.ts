@@ -1,5 +1,5 @@
 
-import { ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
+import { OperationNotAllowedError, ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { URL } from "url";
 import _ from "lodash";
@@ -20,6 +20,7 @@ import { WxPayHTTPv3 as WxPayHTTP } from "../services/wechat/wx-pay-v3";
 import { config } from "../config";
 import { MongoSite } from "../db/site";
 import { Session } from "./dto/session";
+import { MongoEventTicket } from "db/event-ticket";
 //import { Context } from "koa";
 
 
@@ -41,6 +42,7 @@ export class EventRPCHost extends RPCHost {
 
     constructor(
         protected mongoEvent: MongoEvent,
+        protected mongoEventTicket: MongoEventTicket,
         protected mongoTransaction: MongoTransaction,
         protected mongoWxTemplateMsgSubscription: MongoWxTemplateMsgSubscription,
         protected gb2260: GB2260,
@@ -80,7 +82,7 @@ export class EventRPCHost extends RPCHost {
         const site = await this.mongoSite.findOne({ _id: draft.site });
 
         if (!site) {
-            throw new ResourceNotFoundError(`Referenced resource not found: site(${event.site})`);
+            throw new ResourceNotFoundError(`Referenced resource not found: site(${draft.site})`);
         }
 
         const event = Event.from<Event>({
@@ -132,21 +134,8 @@ export class EventRPCHost extends RPCHost {
             query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
         }
         query.verified = auth ? 'draft' : 'passed';  // 临时注释，后面需去掉注释
-        // query.locationCoord={
-        //         $nearSphere:{
-        //             $geometry:{
-        //                 type:"Point",
-        //                 coordinates:[longitude , latitude]
-        //                 }
-        //             }
-        //         };
 
-        // const result = await this.mongoActivity.collection.find(query)
-        // .sort({ updatedAt: -1 })
-        // .skip(pagination.getSkip())
-        // .limit(pagination.getLimit())
-        // .toArray();
-        const result = await this.mongoActivity.collection.aggregate(
+        const result = await this.mongoEvent.collection.aggregate(
             [
 
                 {
@@ -161,7 +150,7 @@ export class EventRPCHost extends RPCHost {
                 {
                     $lookup:
                     {
-                        from: "sites",
+                        from: this.mongoSite.collectionName,
                         localField: "site",
                         foreignField: "_id",
                         as: "site_info"
@@ -175,7 +164,7 @@ export class EventRPCHost extends RPCHost {
                             { $lte: ["$endAt", "$$NOW"] }
                     }
                 }
-            ]
+            ],
         ).skip(pagination.getSkip())
             .limit(pagination.getLimit())
             .toArray();  //  .sort({ updatedAt: -1 }) 
@@ -184,55 +173,63 @@ export class EventRPCHost extends RPCHost {
 
         return result;
     }
+
+    @RPCMethod('event.getParticipants')
     @RPCMethod('activity.applierDetail')
     async applierDetail(
-        sessionUser: SessionUser,
-        @Pick('activityId') activityId: ObjectId
+        session: Session,
+        @Pick('id') eventId: ObjectId
     ) {
-        const userId = await sessionUser.assertUser();
-        const act = await this.mongoActivity.collection.findOne(activityId)
-        if (!act || act.creator.toHexString() !== userId.toHexString()) {
-            return false
+        const user = await session.assertUser();
+        const event = await this.mongoEvent.findOne({ _id: eventId });
+
+        if (!event) {
+            throw new ResourceNotFoundError(`Referenced resource not found: activity(${eventId})`);
         }
-        const query = {
-            activityId: activityId, // { $in: activityId }; 
-            paid: 'Y'
+
+        if (event.creator?.toHexString() !== user._id.toHexString()) {
+            throw new OperationNotAllowedError(`Operation not allowed: activity(${eventId})`);
         }
-        const participants = await this.mongoSignUp.collection.aggregate([
-            {
-                $lookup:
-                {
-                    from: "users",
-                    localField: "userId",
-                    foreignField: "_id",
-                    as: "user_info"
-                }
-            },
-            { $match: query },
-            {
-                $project:
-                {
-                    avatarUrl: { $arrayElemAt: ['$user_info.avatarUrl', 0] },
-                    nickName: { $arrayElemAt: ['$user_info.nickName', 0] },
-                    userId: { $arrayElemAt: ['$user_info._id', 0] },
-                    info: 1,
-                }
+
+        const tickets = await this.mongoEventTicket.simpleFind({
+            event: eventId,
+            $or: [
+                { paid: true },
+                { needToPay: false }
+            ]
+        })
+
+        const participants = await this.mongoUser.simpleFind({
+            _id: { $in: tickets.map((t) => t.userId) }
+        }, {
+            projection: {
+                nickName: true,
+                realName: true,
+                avatar: true,
+                bio: true
             }
-            // { $unwind: "$user_info" },
-        ]).toArray();
+        })
+
         return { participants }
     }
+
+
+    @RPCMethod('event.tickets')
     @RPCMethod('activity.signUpResult')
     async signUpResult(
-        sessionUser: SessionUser,
-        @Pick('activityId') activityId: ObjectId
+        session: Session,
+        @Pick('id') eventId?: ObjectId
     ) {
-        const userId = await sessionUser.assertUser();
+        const user = await session.assertUser();
         const query = {
-            userId,
-            activityId: activityId,
+            userId: user._id,
+            eventId: eventId,
             // paid: 'Y'
         }
+        if (!eventId) {
+            delete query.eventId;
+        }
+        this.mongoEventTicket.simpleFind(query);
         const item = await this.mongoSignUp.collection.findOne(query)
         if (item) {
             const queryActivity: any = {};
@@ -256,6 +253,7 @@ export class EventRPCHost extends RPCHost {
         }
         return { a: "1" }
     }
+
     @RPCMethod('activity.get')
     async get(
         @Pick('id') id: ObjectId,
