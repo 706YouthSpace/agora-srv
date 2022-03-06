@@ -55,7 +55,7 @@ export class Event extends AutoCastable {
     locationGB2260?: string;
 
     @Prop()
-    site?: ObjectId;
+    siteId?: ObjectId;
 
     @Prop()
     host?: ObjectId;
@@ -93,7 +93,7 @@ export class Event extends AutoCastable {
     updatedAt?: Date;
 
     @Prop({ required: true })
-    creator!: ObjectId;
+    creatorId!: ObjectId;
 
     @Prop({
         arrayOf: String

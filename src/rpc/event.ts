@@ -1,13 +1,13 @@
 
-import { OperationNotAllowedError, ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
+import { assignMeta, OperationNotAllowedError, ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { URL } from "url";
 import _ from "lodash";
 import { ObjectId } from "mongodb";
 
 import { Pick, RPCMethod } from "./civi-rpc";
-import { Event, MongoEvent } from "../db/event";
-import { MongoTransaction, Transaction, WxSpecificTransactionDetails } from "../db/transaction";
+import { Event, EVENT_SENSOR_STATUS, MongoEvent } from "../db/event";
+import { CURRENCY, MongoTransaction, Transaction, TRANSACTION_REASON, TRANSACTION_STATUS, WxSpecificTransactionDetails } from "../db/transaction";
 import { MongoWxTemplateMsgSubscription } from "../db/wx-template-msg-subscription";
 //import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
@@ -17,10 +17,12 @@ import { DraftEvent } from "./dto/event";
 import { SignUp } from "./dto/signUp";
 import { MongoUser, User } from "../db/user";
 import { WxPayHTTPv3 as WxPayHTTP } from "../services/wechat/wx-pay-v3";
-import { config } from "../config";
+import { config, Config } from "../config";
 import { MongoSite } from "../db/site";
 import { Session } from "./dto/session";
-import { MongoEventTicket } from "db/event-ticket";
+import { EventTicket, MongoEventTicket, TICKET_STATUS } from "db/event-ticket";
+import { WxService } from "../services/wechat/wx";
+import { WxPayCreateTransactionDto } from "../services/wechat/dto/wx-pay-wxa";
 //import { Context } from "koa";
 
 
@@ -31,14 +33,14 @@ import { MongoEventTicket } from "db/event-ticket";
 // }
 @singleton()
 export class EventRPCHost extends RPCHost {
-    wxPayHttp: WxPayHTTP = new WxPayHTTP({
-        mchId: config.wechat.mchid,
-        apiv3Key: config.wechat.apiv3Key,
-        apiclientKeyDir: config.wechat.apiclientKeyDir,
-        serialNumber: config.wechat.certSerial,
-        platformCertificateFilePath: config.wechat.wxPayPlatformCertDir,
-        platformCertificateSerial: config.wechat.wxPayPlatformCertSerial,
-    });
+    // wxPayHttp: WxPayHTTP = new WxPayHTTP({
+    //     mchId: config.wechat.mchid,
+    //     apiv3Key: config.wechat.apiv3Key,
+    //     apiclientKeyDir: config.wechat.apiclientKeyDir,
+    //     serialNumber: config.wechat.certSerial,
+    //     platformCertificateFilePath: config.wechat.wxPayPlatformCertDir,
+    //     platformCertificateSerial: config.wechat.wxPayPlatformCertSerial,
+    // });
 
     constructor(
         protected mongoEvent: MongoEvent,
@@ -47,7 +49,9 @@ export class EventRPCHost extends RPCHost {
         protected mongoWxTemplateMsgSubscription: MongoWxTemplateMsgSubscription,
         protected gb2260: GB2260,
         protected mongoUser: MongoUser,
-        protected mongoSite: MongoSite
+        protected mongoSite: MongoSite,
+        protected config: Config,
+        protected wxService: WxService,
     ) {
         super(...arguments);
         this.init();
@@ -70,6 +74,8 @@ export class EventRPCHost extends RPCHost {
     escapeRegExp(input: string) {
         return input.replace(/[#-.]|[[-^]|[?|{}]/g, '\\$&');
     }
+
+    @RPCMethod('event.create')
     @RPCMethod('activity.create')
     async create(
         draft: DraftEvent,
@@ -87,7 +93,7 @@ export class EventRPCHost extends RPCHost {
 
         const event = Event.from<Event>({
             ...draft,
-            creator: user._id,
+            creatorId: user._id,
 
             locationGB2260: site.locationGB2260,
             locationText: site.locationText,
@@ -110,8 +116,10 @@ export class EventRPCHost extends RPCHost {
         *latitude: 用户纬度  
         *longitude: 用户经度}
     */
+    @RPCMethod('event.list')
     @RPCMethod('activity.find')
-    async find(pagination: Pagination,
+    async find(
+        pagination: Pagination,
         @Pick('latitude') latitude?: number,
         @Pick('longitude') longitude?: number,
         @Pick('locationGB2260') locationGB2260?: string,
@@ -184,15 +192,15 @@ export class EventRPCHost extends RPCHost {
         const event = await this.mongoEvent.findOne({ _id: eventId });
 
         if (!event) {
-            throw new ResourceNotFoundError(`Referenced resource not found: activity(${eventId})`);
+            throw new ResourceNotFoundError(`Referenced resource not found: event(${eventId})`);
         }
 
-        if (event.creator?.toHexString() !== user._id.toHexString()) {
-            throw new OperationNotAllowedError(`Operation not allowed: activity(${eventId})`);
+        if (event.creatorId?.toHexString() !== user._id.toHexString()) {
+            throw new OperationNotAllowedError(`Operation not allowed: event(${eventId})`);
         }
 
         const tickets = await this.mongoEventTicket.simpleFind({
-            event: eventId,
+            eventId,
             $or: [
                 { paid: true },
                 { needToPay: false }
@@ -229,173 +237,172 @@ export class EventRPCHost extends RPCHost {
         if (!eventId) {
             delete query.eventId;
         }
-        this.mongoEventTicket.simpleFind(query);
-        const item = await this.mongoSignUp.collection.findOne(query)
-        if (item) {
-            const queryActivity: any = {};
-            queryActivity._id = activityId;
-            const resultData = await this.mongoActivity.collection.aggregate(
-                [
-                    {
-                        $lookup:
-                        {
-                            from: "sites",
-                            localField: "site",
-                            foreignField: "_id",
-                            as: "site_info"
-                        }
-                    },
-                    { $match: queryActivity },
-                    { $unwind: "$site_info" },
-                ]
-            ).next() as Activity;
-            return resultData
-        }
-        return { a: "1" }
+        const tickets = await this.mongoEventTicket.simpleFind(query);
+
+        const events = this.mongoEvent.simpleFind({
+            _id: { $in: tickets.map((t) => t.eventId) }
+        })
+
+        assignMeta(tickets, { events });
+
+        return tickets;
     }
 
+
+    @RPCMethod('event.get')
     @RPCMethod('activity.get')
     async get(
-        @Pick('id') id: ObjectId,
-        sessionUser: SessionUser,
+        session: Session,
+        @Pick('id', { required: true }) id: ObjectId,
     ) {
-        const query: any = {};
-        const userId = await sessionUser.assertUser();
-        query.activityId = id; // { $in: activityId }; 
-        query.paid = 'Y'
+        await session.assertUser();
+        const event = await this.mongoEvent.findOne({ _id: id });
+        if (!event) {
+            throw new ResourceNotFoundError(`Referenced resource not found: event(${id})`);
+        }
         // const participants = await this.mongoSignUp.collection.find(query).toArray() ;
-        const participants = await this.mongoSignUp.collection.aggregate([
-            {
-                $lookup:
-                {
-                    from: "users",
-                    localField: "userId",
-                    foreignField: "_id",
-                    as: "user_info"
-                }
-            },
-            { $match: query },
-            {
-                $project:
-                {
-                    avatarUrl: { $arrayElemAt: ['$user_info.avatarUrl', 0] },
-                    nickName: { $arrayElemAt: ['$user_info.nickName', 0] },
-                    userId: { $arrayElemAt: ['$user_info._id', 0] },
-                }
-            }
-            // { $unwind: "$user_info" },
-        ]).toArray();
-        //const resultData = await this.mongoActivity.get(id) as Activity;
-        const queryActivity: any = {};
-        queryActivity._id = id;
-        const resultData = await this.mongoActivity.collection.aggregate(
-            [
-                {
-                    $lookup:
-                    {
-                        from: "sites",
-                        localField: "site",
-                        foreignField: "_id",
-                        as: "site_info"
-                    }
-                },
-                { $match: queryActivity },
-                { $unwind: "$site_info" },
-                {
-                    $addFields: {
-                        isEnd:
-                            { $lte: ["$endAt", "$$NOW"] },
-                    }
-                }
+        const tickets = await this.mongoEventTicket.simpleFind({
+            eventId: event._id,
+            $or: [
+                { paid: true },
+                { needToPay: false }
             ]
-        ).next() as Activity;
-        const creator = resultData.creator && await this.mongoUser.get(resultData.creator)
-        const isJoined = userId && participants.some(item => {
-            return item.userId.toHexString() === userId.toHexString()
-        })
-        const result = Object.assign(resultData, {
-            participants,
+        });
+        const participants = await this.mongoUser.simpleFind({
+            _id: { $in: tickets.map((t) => t.userId) }
+        }, {
+            projection: {
+                nickName: true,
+                realName: true,
+                avatar: true,
+                bio: true
+            }
+        });
+        const site = await this.mongoSite.findOne({ _id: event.siteId });
+
+        const creator = await this.mongoUser.findOne({ _id: event.creatorId });
+
+        return {
+            ...event,
+            site,
             creator,
-            isJoined
-        })
-        return result;
+            participants,
+        }
     }
+
+    @RPCMethod('event.approve')
     @RPCMethod('activity.approve')
     async approve(
         @Pick('id') id: ObjectId,
-        @Pick('approve') approve: boolean,
-        sessionUser: SessionUser,
+        @Pick('approve') approved: boolean,
+        session: Session,
     ) {
-        const userId = await sessionUser.assertUser();
-        const user = await this.mongoUser.get(userId) as User;
+        const user = await session.assertUser();
         if (!user.isAdmin) {
-            return false
+            throw new OperationNotAllowedError(`Operation not allowed: user not admin`);
         }
 
-        const result = await this.mongoActivity.get(id) as Activity;
-        const verified = approve ? VERIFIED_STATUS.PASSED : VERIFIED_STATUS.REJECTED
-        const data = await this.mongoActivity.set(result._id, { verified })
-        return data;
+        let event = await this.mongoEvent.findOne({ _id: id });
+        if (!event) {
+            throw new ResourceNotFoundError(`Referenced resource not found: event(${id})`);
+        }
+
+        event = await this.mongoEvent.updateOne({
+            _id: id,
+        }, { $set: { status: approved ? EVENT_SENSOR_STATUS.PASSED : EVENT_SENSOR_STATUS.REJECTED } });
+
+        return event;
     }
 
 
+    @RPCMethod('event.secureTicket')
     @RPCMethod('activity.submitSignUp')
     async submitSignUp(
-        sessionUser: SessionUser,
-        draft: SignUp
+        session: Session,
+        @Pick('id', { required: true }) eventId: ObjectId,
+        @Pick('wxTemplateMsgId') wxTempMsgId?: string,
     ) {
-        const userId = await sessionUser.assertUser();
-        const user = await this.mongoUser.get(userId) as any;
-        const openId = Object.values(user.wxOpenId)[0] as string;
-        console.log(draft);
+        const user = await session.assertUser();
 
-        const activity = await this.mongoActivity.collection.findOne(draft.activityId as ObjectId) as Activity
-        console.log(activity)
-        const needToPay = activity.pricing === 0 ? "N" : "Y"
+        const event = await this.mongoEvent.findOne({ _id: eventId });
 
-        const draftSignUp = {
-            userId: userId,
-            activityId: draft.activityId,
-            info: activity.info,
-            paid: needToPay === "Y" ? "N" : "Y",
-            needToPay,
-            toUserName: config.wechat.appId,
-            fromUserName: openId,
-            createTime: activity.createAt,
-            templateId: draft.templateId,
-            subscribeStatusString: "accept",
-            sent: "N",
+        if (!event) {
+            throw new ResourceNotFoundError(`Referenced resource not found: event(${eventId})`);
         }
-        const r = await this.mongoSignUp.create(draftSignUp);
-        return Object.assign(r, { needToPay });
+
+        const needToPay = (event.pricing || 0) > 0;
+
+        const draftTicket = EventTicket.from<EventTicket>({
+            userId: user._id,
+            eventId: event._id,
+            needToPay,
+
+            status: needToPay ? TICKET_STATUS.PENDING_PAYMENT : TICKET_STATUS.VALID,
+
+            wxAppId: this.config.get('wechat.appId'),
+            wxNotifyTemplateId: wxTempMsgId
+        });
+
+        const ticket = await this.mongoEventTicket.create(draftTicket);
+
+
+        return ticket;
     }
 
+    @RPCMethod('ticket.pay')
     @RPCMethod('activity.askPay')
     async askPay(
-        @Pick('signUpId') signUpId: ObjectId,
-        sessionUser: SessionUser
+        @Pick('ticketId') ticketId: ObjectId,
+        session: Session
     ) {
-        const userId = await sessionUser.assertUser();
-        const user = await this.mongoUser.get(userId) as any;
-        const openId = Object.values(user.wxOpenId)[0] as string;
+        const user = await session.assertUser();
 
-        let query = { _id: signUpId };
-        const signUpInfo = await this.mongoSignUp.collection.aggregate(
-            [
-                {
-                    $lookup:
-                    {
-                        from: "activities",
-                        localField: "activityId",
-                        foreignField: "_id",
-                        as: "activities_info"
-                    }
-                },
-                { $match: query },
-                { $unwind: "$activities_info" },
+        const ticket = await this.mongoEventTicket.findOne({ _id: ticketId });
+        if (!ticket) {
+            throw new ResourceNotFoundError(`Referenced resource not found: ticket(${ticketId})`);
+        }
+        if (!ticket.userId.equals(user._id)) {
+            throw new OperationNotAllowedError(`Operation not allowed: ticket.pay(${ticketId})`);
+        }
 
-            ]
-        ).toArray() as any;
+        const event = await this.mongoEvent.findOne({ _id: ticket.eventId });
+        if (!event) {
+            throw new ResourceNotFoundError(`Referenced resource not found: event(${ticket.eventId})`);
+        }
+
+        if (!ticket.needToPay || !event.pricing || event.pricing <= 0) {
+            const validTicket = this.mongoEventTicket.updateOne({ _id: ticketId }, { $set: { status: TICKET_STATUS.VALID } });
+
+            return validTicket;
+        }
+
+        let transaction: Transaction | undefined;
+
+        if (ticket.transactionId) {
+            transaction = await this.mongoTransaction.findOne({ _id: ticket.transactionId });
+            if (!transaction) {
+                throw new ResourceNotFoundError(`Referenced resource not found: transaction(${ticket.transactionId})`);
+            }
+        } else {
+            transaction = Transaction.from({
+                title: `活动门票: ${event.title} - ${ticket._id}`,
+                reason: TRANSACTION_REASON.EVENT_TICKET_PURCHASE,
+                fromUserId: user._id,
+                pricing: event.pricing,
+                currencyType: CURRENCY.CNY,
+                status: TRANSACTION_STATUS.CREATED
+            });
+            transaction = await this.mongoTransaction.create(transaction!);
+        }
+
+        this.wxService.createWxPayTransaction({
+            description: transaction.title,
+            out_trade_no: transaction._id.toHexString(),
+            attach: transaction._id.toHexString(),
+            amount: {
+                total: event.pricing,
+            }
+        });
 
         const outTradeNo = Date.now().toString();
         const param = {

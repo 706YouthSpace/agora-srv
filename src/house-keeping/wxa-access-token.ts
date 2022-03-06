@@ -2,8 +2,8 @@ import { Config } from "../config";
 import { MongoLiveConfig } from "../db/live-config";
 import { AsyncService, retry } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
-import { WxConfig, WxPlatformService } from "../services/wechat/wx-platform";
 import { ChangeStreamDocument } from "mongodb";
+import { WxService } from "services/wechat/wx";
 
 interface WxaConf {
     accessToken: string;
@@ -13,7 +13,6 @@ interface WxaConf {
 @singleton()
 export class WxaAccessTokenAgent extends AsyncService {
 
-    wxConfig: WxConfig;
     wxaConfigKey: string;
 
     timer?: NodeJS.Timer;
@@ -21,12 +20,11 @@ export class WxaAccessTokenAgent extends AsyncService {
     constructor(
         protected mongoLiveConfig: MongoLiveConfig,
         protected config: Config,
-        protected wxPlatform: WxPlatformService
+        protected wxService: WxService
     ) {
         super(...arguments);
 
-        this.wxConfig = config.wechat;
-        this.wxaConfigKey = `wxa.${this.wxConfig.appId}`;
+        this.wxaConfigKey = `wxa.${this.config.get('wechat.appId')}`;
 
         this.init();
     }
@@ -54,12 +52,12 @@ export class WxaAccessTokenAgent extends AsyncService {
 
     @retry(3, 100)
     async refreshAccessToken() {
-        const result = await this.wxPlatform.getAccessToken(this.wxConfig.appId, this.wxConfig.appSecret);
+        const result = await this.wxService.getAccessToken();
 
-        const conf = this.mongoLiveConfig.localGet(this.wxaConfigKey) || {};
+        const conf: any = this.mongoLiveConfig.localGet(this.wxaConfigKey) || {};
 
-        conf.appId = this.wxConfig.appId;
-        conf.accessToken = result;
+        conf.appId = this.wxService.wxConfig.appId;
+        conf.accessToken = result.access_token;
         conf.accessTokenExpiresBefore = new Date(Date.now() + result.expires_in * 1000 * 0.9);
 
         this.mongoLiveConfig.set(this.wxaConfigKey, conf);

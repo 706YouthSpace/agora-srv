@@ -55,11 +55,8 @@ export class WxSpecificTransactionDetails extends AutoCastable {
     @Prop({ required: true })
     openId!: string;
 
-    @Prop({ required: true, validate: currencyAmount })
-    currencyAmount!: number;
-
-    @Prop({ required: true })
-    wxTransactionId!: string;
+    @Prop()
+    wxTransactionId?: string;
 
     @Prop({ default: TRANSACTION_PROGRESS.CREATED, type: TRANSACTION_PROGRESS })
     progress!: TRANSACTION_PROGRESS;
@@ -77,10 +74,30 @@ export class WxSpecificTransactionDetails extends AutoCastable {
     initiatedAt?: Date;
 
     @Prop()
+    expireAt?: Date;
+
+    @Prop()
     completedAt?: Date;
 
     @Prop()
     wxMsgTemplateId?: string;
+
+    toWxTransactionCreationDto() {
+
+        const partial: any = {
+            merchid: this.merchId,
+            appid: this.appId,
+            payer: {
+                openid: this.openId
+            }
+        };
+
+        if (this.expireAt) {
+            partial.time_expire = this.expireAt;
+        }
+
+        return partial;
+    }
 }
 
 export class Transaction extends AutoCastable {
@@ -97,11 +114,13 @@ export class Transaction extends AutoCastable {
     reason!: TRANSACTION_REASON;
 
     @Prop({ required: true })
-    fromUser!: ObjectId;
+    fromUserId!: ObjectId;
 
     @Prop()
     wxPay?: WxSpecificTransactionDetails;
 
+    @Prop({ required: true, validate: currencyAmount })
+    currencyAmount!: number;
     @Prop({ default: CURRENCY.CNY })
     currencyType!: CURRENCY;
 
@@ -116,6 +135,29 @@ export class Transaction extends AutoCastable {
 
     @Prop()
     updatedAt?: Date;
+
+    createWxTransactionCreationDto(draft?: Partial<WxSpecificTransactionDetails>) {
+        if (draft) {
+            this.wxPay = WxSpecificTransactionDetails.from({
+                ...this.wxPay,
+                ...draft
+            });
+        }
+        if (!this.wxPay) {
+            throw new Error('No wxPay details found');
+        }
+
+        const partial: any = this.wxPay.toWxTransactionCreationDto();
+
+        partial.out_trade_no = this._id.toHexString();
+        partial.description = this.title;
+        partial.amount = {
+            total: this.currencyAmount,
+            currency: this.currencyType
+        };
+
+        return partial;
+    }
 }
 
 

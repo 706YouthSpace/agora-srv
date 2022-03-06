@@ -6,8 +6,12 @@ import { AutoCastable, Prop } from '@naiverlabs/tskit';
 
 import { MongoCollection } from './base';
 
-export enum TicketStatus {
-    
+export enum TICKET_STATUS {
+    PENDING_PAYMENT = 'pending_payment',
+    EXPIRED = 'expired',
+    CANCELLED = 'cancelled',
+    VALID = 'valid',
+
 }
 export class EventTicket extends AutoCastable {
 
@@ -34,6 +38,12 @@ export class EventTicket extends AutoCastable {
 
     @Prop({ required: true })
     wxAppId!: string;
+
+    @Prop()
+    wxNotifyTemplateId?: string;
+
+    @Prop({ required: true, type: TICKET_STATUS, default: TICKET_STATUS.PENDING_PAYMENT })
+    status!: TICKET_STATUS;
 
     @Prop()
     createdAt?: Date;

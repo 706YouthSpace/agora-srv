@@ -77,7 +77,7 @@ export class UserRPCHost extends RPCHost {
         await this.mongoUser.updateOne({ _id: user._id }, { $set: patch, updatedAt: new Date() });
 
         const createActList = await this.mongoEvent.simpleFind({
-            creator: user._id,
+            creatorId: user._id,
             status: VERIFICATION_STATUS.PASSED
         });
 
@@ -103,7 +103,7 @@ export class UserRPCHost extends RPCHost {
         const user = await this.mongoUser.get(id)
 
         const createActList = await this.mongoEvent.simpleFind({
-            creator: id,
+            creatorId: id,
             status: VERIFICATION_STATUS.PASSED
         }).toArray()
 

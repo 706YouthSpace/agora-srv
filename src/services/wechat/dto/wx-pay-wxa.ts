@@ -4,7 +4,7 @@ import { URL } from "url";
 import { validNotifyUrl } from "../../../app/validators";
 import { WxPayAmoutDto, WxPayPayerDto, WxPayDiscountDto, WxPaySceneDto, WxPaySettleInfoDto, WXPAY_TRADE_TYPE, WXPAY_TRADE_STATE, WxPayAmoutNotificationDto } from "./wx-pay-common";
 
-export class WxPayCreateTrasactionDto extends AutoCastable {
+export class WxPayCreateTransactionDto extends AutoCastable {
     @Prop({
         required: true, validate: length(1, 32),
         desc: `由微信生成的应用ID，全局唯一。请求基础下单接口时请注意APPID的应用属性，例如公众号场景下，需使用应用属性为公众号的APPID`

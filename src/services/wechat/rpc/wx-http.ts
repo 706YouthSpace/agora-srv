@@ -1,16 +1,16 @@
 import { ApplicationError, HTTPService, HTTPServiceConfig, HTTPServiceRequestOptions, retry } from "@naiverlabs/tskit";
 import _ from "lodash";
 import { Readable } from "stream";
-import * as inf from './interface';
+import * as inf from '../interface';
 import { wxErrors } from "./wx-errors";
 
 
 export class WxPlatformError extends ApplicationError {
-    err: inf.WeChatErrorReceipt;
+    wxErr: inf.WeChatErrorReceipt;
     localKnowledge?: string;
     constructor(err: inf.WeChatErrorReceipt) {
         super(40004, err);
-        this.err = err;
+        this.wxErr = err;
         if (err.errcode) {
             this.localKnowledge = wxErrors[err.errcode];
         }
@@ -40,7 +40,7 @@ export class WxHTTP extends HTTPService {
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getComponentAccessToken(appId: string, appSecret: string, componentVerifyTicket: string) {
         const result = await this.postJson<inf.WxoComponentAccessTokenReceipt>(
-            '/cgi-bin/component/api_component_token', undefined,
+            '/cgi-bin/component/api_component_token',
             {
                 component_appid: appId,
                 component_appsecret: appSecret,
@@ -53,7 +53,7 @@ export class WxHTTP extends HTTPService {
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getAccessToken(appId: string, appSecret: string) {
-        const result = await this.get<inf.WxoAccessTokenReceipt>(
+        const result = await this.getWithSearchParams<inf.WxoAccessTokenReceipt>(
             '/cgi-bin/token',
             {
                 appid: appId,
@@ -68,7 +68,7 @@ export class WxHTTP extends HTTPService {
 
     async getPreAuthCode(componentAppId: string, componentAccessToken: string) {
 
-        const result = await this.postJson<inf.WxoPreAuthCodeReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoPreAuthCodeReceipt>(
             '/cgi-bin/component/api_create_preauthcode',
             { component_access_token: componentAccessToken },
             {
@@ -82,7 +82,7 @@ export class WxHTTP extends HTTPService {
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getClientAccessToken(componentAppId: string, clientAuthorizationCode: string, componentAccessToken: string) {
 
-        const result = await this.postJson<inf.WxoClientAuthorizationReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoClientAuthorizationReceipt>(
             '/cgi-bin/component/api_query_auth',
             { component_access_token: componentAccessToken },
             {
@@ -100,7 +100,7 @@ export class WxHTTP extends HTTPService {
         clientAppId: string, clientRefreshToken: string, componentAccessToken: string
     ) {
 
-        const result = await this.postJson<inf.WxoClientAuthorizationTokenRefreshReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoClientAuthorizationTokenRefreshReceipt>(
             '/cgi-bin/component/api_authorizer_token',
             { component_access_token: componentAccessToken },
             {
@@ -117,7 +117,7 @@ export class WxHTTP extends HTTPService {
     async getClientInfo(
         componentAppId: string,
         clientAppId: string, componentAccessToken: string) {
-        const result = await this.postJson<inf.WxoClientInfoReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoClientInfoReceipt>(
             '/cgi-bin/component/api_get_authorizer_info',
             { component_access_token: componentAccessToken },
             {
@@ -132,7 +132,7 @@ export class WxHTTP extends HTTPService {
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async getClientOption(
         componentAppId: string, clientAppId: string, optionName: string, componentAccessToken: string) {
-        const result = await this.postJson<inf.WxoClientOptionReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoClientOptionReceipt>(
             '/cgi-bin/component/api_get_authorizer_option',
             { component_access_token: componentAccessToken },
             {
@@ -147,7 +147,7 @@ export class WxHTTP extends HTTPService {
 
     async setClientOption(
         componentAppId: string, clientAppId: string, optionName: string, optionValue: string, componentAccessToken: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/component/api_get_authorizer_option',
             { component_access_token: componentAccessToken },
             {
@@ -219,7 +219,7 @@ export class WxHTTP extends HTTPService {
         const uploadDomain = Array.isArray(_uploadDomain) ? _uploadDomain : (_uploadDomain ? [_uploadDomain] : _uploadDomain);
         const downloadDomain = Array.isArray(_downloadDomain) ? _downloadDomain : (_downloadDomain ? [_downloadDomain] : _downloadDomain);
 
-        const result = await this.postJson<inf.WxaServerUriReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaServerUriReceipt>(
             '/wxa/modify_domain',
             { access_token: accessToken },
             {
@@ -263,7 +263,7 @@ export class WxHTTP extends HTTPService {
             queryBody.webviewdomain = webviewDomainWhitelist;
         }
 
-        const result = await this.postJson<inf.WxaWebViewWhitelistReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaWebViewWhitelistReceipt>(
             '/wxa/setwebviewdomain',
             { access_token: accessToken },
             queryBody
@@ -274,7 +274,7 @@ export class WxHTTP extends HTTPService {
 
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaGetAccountInfo(accessToken: string) {
-        const result = await this.get<inf.WxaAccountInfoReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaAccountInfoReceipt>(
             '/cgi-bin/account/getaccountbasicinfo',
             { access_token: accessToken }
         );
@@ -287,7 +287,7 @@ export class WxHTTP extends HTTPService {
             return [`naming_other_stuff_${indx + 1}`, mediaId];
         }).zipObjectDeep().value() || {};
 
-        const result = await this.postJson<inf.WxaNamingReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaNamingReceipt>(
             '/wxa/setnickname',
             { access_token: accessToken },
             {
@@ -304,7 +304,7 @@ export class WxHTTP extends HTTPService {
             return [`naming_other_stuff_${indx + 1}`, mediaId];
         }).zipObjectDeep().value() || {};
 
-        const result = await this.postJson<inf.WxaNamingReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaNamingReceipt>(
             '/wxa/setnickname',
             { access_token: accessToken },
             {
@@ -317,7 +317,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaNamingStatus(accessToken: string, auditId: string) {
-        const result = await this.postJson<inf.WxaNamingConditionQueryReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaNamingConditionQueryReceipt>(
             '/wxa/api_wxa_querynickname',
             { access_token: accessToken },
             { auidit_id: auditId },
@@ -327,7 +327,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaNamingPrecheck(accessToken: string, name: string) {
-        const result = await this.postJson<inf.WxaNamingPrecheckReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaNamingPrecheckReceipt>(
             '/cgi-bin/wxverify/checkwxverifynickname',
             {
                 nick_name: name
@@ -341,7 +341,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaModifyAvatar(accessToken: string, avatarMediaId: string, x1: number, y1: number, x2: number, y2: number) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/account/modifyheadimage',
             { access_token: accessToken },
             {
@@ -354,7 +354,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaModifyDescription(accessToken: string, newDescription: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/account/modifysignature',
             {
                 access_token: accessToken
@@ -373,7 +373,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaCompleteAdminRebind(accessToken: string, taskId: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/account/componentrebindadmin',
             {
                 access_token: accessToken
@@ -387,7 +387,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoGetAllPossibleCategories(accessToken: string) {
-        const result = await this.get<inf.WxaGetAllCategoriesReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaGetAllCategoriesReceipt>(
             '/cgi-bin/wxopen/getallcategories',
             { access_token: accessToken }
         );
@@ -399,7 +399,7 @@ export class WxHTTP extends HTTPService {
         accessToken: string,
         categories: Array<{ first: number; second: number; certicates: Array<{ key: string; value: string }> }>
     ) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/addcategory',
             { categories },
             { access_token: accessToken }
@@ -413,7 +413,7 @@ export class WxHTTP extends HTTPService {
         firstId: number,
         secondId: number
     ) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/deletecategory',
             { access_token: accessToken },
             { first: firstId, second: secondId }
@@ -426,7 +426,7 @@ export class WxHTTP extends HTTPService {
         accessToken: string,
         category: { first: number; second: number; certicates: Array<{ key: string; value: string }> }
     ) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/modifycategory',
             { access_token: accessToken },
             { ...category }
@@ -436,7 +436,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoGetCurrentCategories(accessToken: string) {
-        const result = await this.get<inf.WxaGetCurrentCategoriesReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaGetCurrentCategoriesReceipt>(
             '/cgi-bin/wxopen/getcategory',
             { access_token: accessToken }
         );
@@ -445,7 +445,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaBindTester(accessToken: string, testerId: string) {
-        const result = await this.postJson<inf.WxaBindTesterReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaBindTesterReceipt>(
             '/wxa/bind_tester',
             {
                 access_token: accessToken
@@ -459,7 +459,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaUnbindTester(accessToken: string, userStr: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/unbind_tester',
             {
                 access_token: accessToken
@@ -473,7 +473,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetAllTesters(accessToken: string) {
-        const result = await this.postJson<inf.WxaGetAllTestersReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaGetAllTestersReceipt>(
             '/wxa/memberauth',
             {
                 access_token: accessToken
@@ -492,7 +492,7 @@ export class WxHTTP extends HTTPService {
         extJson: object = {},
         userVersion: string = '', userDesc: string = ''
     ) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/commit',
             {
                 template_id: templateId,
@@ -509,7 +509,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaBetaQR(accessToken: string, path: string = '') {
-        const result = await this.get<Buffer>(
+        const result = await this.getWithSearchParams<Buffer>(
             '/wxa/get_qrcode',
             {
                 access_token: accessToken,
@@ -534,7 +534,7 @@ export class WxHTTP extends HTTPService {
         };
         isHyaline?: boolean;
     }) {
-        const result = await this.postJson<Buffer>(
+        const result = await this.postJsonWithSearchParams<Buffer>(
             'wxa/getwxacodeunlimit',
             {
                 access_token: accessToken
@@ -553,7 +553,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetAvailableCategories(accessToken: string) {
-        const result = await this.get<inf.WxaCodeCategoriesReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaCodeCategoriesReceipt>(
             '/wxa/get_category',
             {
                 access_token: accessToken
@@ -564,7 +564,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaListPages(accessToken: string) {
-        const result = await this.get<inf.WxaListPagesReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaListPagesReceipt>(
             '/wxa/get_page',
             {
                 access_token: accessToken
@@ -588,7 +588,7 @@ export class WxHTTP extends HTTPService {
             title: string;
         }>
     ) {
-        const result = await this.postJson<inf.WxaSubmitReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaSubmitReceipt>(
             '/wxa/submit_audit',
             {
                 access_token: accessToken
@@ -602,7 +602,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetCodeAuditionStatus(accessToken: string, auditId: string | number) {
-        const result = await this.postJson<inf.WxaCheckAuditionStatusReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaCheckAuditionStatusReceipt>(
             '/wxa/get_auditstatus',
             { access_token: accessToken },
             { auditid: parseInt(auditId as any, 10) }
@@ -612,7 +612,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetLatestCodeAuditionStatus(accessToken: string) {
-        const result = await this.get<inf.WxaCheckLatestAuditionStatusReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaCheckLatestAuditionStatusReceipt>(
             '/wxa/get_latest_auditstatus',
             { access_token: accessToken }
         );
@@ -631,7 +631,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaSetProductionVersionVisibility(accessToken: string, visible: boolean) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/change_visitstatus',
             { access_token: accessToken },
             {
@@ -643,7 +643,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaCodeRevert(accessToken: string) {
-        const result = await this.get<inf.WeChatErrorReceipt>(
+        const result = await this.getWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/revertcoderelease',
             {
                 access_token: accessToken
@@ -654,7 +654,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetAPISupportage(accessToken: string) {
-        const result = await this.postJson<inf.WxaAPISupportageReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaAPISupportageReceipt>(
             '/cgi-bin/wxopen/getweappsupportversion',
             {
                 access_token: accessToken
@@ -666,7 +666,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaSetMinimalAPIVersion(accessToken: string, version: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/setweappsupportversion',
             {
                 access_token: accessToken
@@ -690,7 +690,7 @@ export class WxHTTP extends HTTPService {
             is_edit: 0 | 1;
         }
     ) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/qrcodejumpadd',
             {
                 access_token: accessToken
@@ -704,7 +704,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoGetAllQRReferenceRules(accessToken: string) {
-        const result = await this.postJson<inf.WxaQRReferenceReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaQRReferenceReceipt>(
             '/cgi-bin/wxopen/qrcodejumpget',
             { access_token: accessToken },
             {}
@@ -714,7 +714,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoGetVerificationFile(accessToken: string) {
-        const result = await this.postJson<inf.WxaVerificationFileReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaVerificationFileReceipt>(
             '/cgi-bin/wxopen/qrcodejumpdownload',
             { access_token: accessToken },
             {}
@@ -724,7 +724,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoPublishQRReference(accessToken: string, prefix: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/qrcodejumppublish',
             { access_token: accessToken },
             { prefix }
@@ -734,7 +734,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaUndoCodeSubmit(accessToken: string) {
-        const result = await this.get<inf.WeChatErrorReceipt>(
+        const result = await this.getWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/undocodeaudit',
             { access_token: accessToken }
         );
@@ -743,7 +743,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGrayscaleRelease(accessToken: string, percentage: number) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/grayrelease',
             { access_token: accessToken },
             { gray_percentage: percentage }
@@ -753,7 +753,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaRevertGrayscaleRelease(accessToken: string) {
-        const result = await this.get<inf.WeChatErrorReceipt>(
+        const result = await this.getWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/revertgrayrelease',
             { access_token: accessToken }
         );
@@ -762,7 +762,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetGrayscaleReleaseStatus(accessToken: string) {
-        const result = await this.get<inf.WxaGrayScaleStatusReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaGrayScaleStatusReceipt>(
             '/wxa/getgrayreleaseplan',
             { access_token: accessToken }
         );
@@ -771,7 +771,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetAllCodeDrafts(accessToken: string) {
-        const result = await this.get<inf.WxaGetAllCodeDraftsReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaGetAllCodeDraftsReceipt>(
             '/wxa/gettemplatedraftlist',
             { access_token: accessToken }
         );
@@ -780,7 +780,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetAllCodeTemplates(accessToken?: string) {
-        const result = await this.get<inf.WxaGetAllCodeTemplatesReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaGetAllCodeTemplatesReceipt>(
             '/wxa/gettemplatelist',
             { access_token: accessToken }
         );
@@ -789,7 +789,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaComposeCodeTemplate(accessToken: string, draftId: number) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/addtotemplate',
             { access_token: accessToken },
             { draft_id: draftId }
@@ -799,7 +799,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaRemoveFromCodeTemplate(accessToken: string, templateId: number) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/deletetemplate',
             { access_token: accessToken },
             { template_id: templateId }
@@ -812,7 +812,7 @@ export class WxHTTP extends HTTPService {
     async wxaExchangeForSessionKey(
         componentAppId: string, componentAccessToken: string, appId: string, code: string) {
 
-        const result = await this.get<inf.WxaLoginReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaLoginReceipt>(
             '/sns/component/jscode2session',
             {
                 appid: appId,
@@ -829,7 +829,7 @@ export class WxHTTP extends HTTPService {
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaLogin(code: string, appId: string, appSecret: string) {
 
-        const result = await this.get<inf.WxaLoginReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaLoginReceipt>(
             '/sns/jscode2session',
             {
                 appid: appId,
@@ -845,7 +845,7 @@ export class WxHTTP extends HTTPService {
     @retry(RETRY_TIMES, RETRY_INTERVAL_MS)
     async wxaComponentLogin(code: string, appId: string, appSecret: string) {
 
-        const result = await this.get<inf.WxaLoginReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaLoginReceipt>(
             '/sns/component/jscode2session',
             {
                 appid: appId,
@@ -859,7 +859,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoListAllPublicMessageTemplates(accessToken: string, offset = 0, count = 5) {
-        const result = await this.postJson<inf.WxaGetAllMessageComponentsReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaGetAllMessageComponentsReceipt>(
             '/cgi-bin/wxopen/template/library/list',
             { access_token: accessToken },
             { offset, count }
@@ -869,7 +869,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoGetSinglePublicMessageTemplate(accessToken: string, componentId: string) {
-        const result = await this.postJson<inf.WxaGetMessageComponentReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaGetMessageComponentReceipt>(
             '/cgi-bin/wxopen/template/library/get',
             { access_token: accessToken },
             { id: componentId }
@@ -879,7 +879,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoComposeCustomMessageTemplate(accessToken: string, componentId: string, ...keywordIds: number[]) {
-        const result = await this.postJson<inf.WxaComposeMessageTemplateReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaComposeMessageTemplateReceipt>(
             '/cgi-bin/wxopen/template/add',
             { access_token: accessToken },
             {
@@ -892,7 +892,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoGetAllCustomMessageTemplates(accessToken: string, offset = 0, count = 20) {
-        const result = await this.postJson<inf.WxaGetAllMessageTemplatesReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaGetAllMessageTemplatesReceipt>(
             '/cgi-bin/wxopen/template/list',
             { access_token: accessToken },
             { offset, count }
@@ -902,7 +902,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoRemoveSingleCustomMessageTemplate(accessToken: string, templateId: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/wxopen/template/del',
             { access_token: accessToken },
             { template_id: templateId }
@@ -932,7 +932,7 @@ export class WxHTTP extends HTTPService {
         if (emphasizedKeyword) {
             qObj.emphasis_keyword = emphasizedKeyword;
         }
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/message/wxopen/template/send',
             { access_token: accessToken },
             qObj
@@ -960,7 +960,7 @@ export class WxHTTP extends HTTPService {
             data
         };
         
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/message/subscribe/send',
             { access_token: accessToken },
             qObj
@@ -970,7 +970,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoCreateAccountAndBindMiniProgram(accessToken: string, appId: string) {
-        const result = await this.postJson<inf.WxoAccountOpsWithAppIdReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoAccountOpsWithAppIdReceipt>(
             '/cgi-bin/open/create',
             { access_token: accessToken },
             { appid: appId }
@@ -980,7 +980,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoBindMiniProgram(accessToken: string, appId: string, wxoId: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/open/bind',
             { access_token: accessToken },
             { appid: appId, open_appid: wxoId }
@@ -990,7 +990,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxoUnbindMiniProgram(accessToken: string, appId: string, wxoId: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/open/unbind',
             { access_token: accessToken },
             { appid: appId, open_appid: wxoId }
@@ -1000,7 +1000,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaGetBoundOpenPlatformAccount(accessToken: string, appId: string) {
-        const result = await this.postJson<inf.WxoAccountOpsWithAppIdReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxoAccountOpsWithAppIdReceipt>(
             '/cgi-bin/open/get',
             { access_token: accessToken },
             { appid: appId }
@@ -1010,7 +1010,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaForbidBeingSearched(accessToken: string, disallowPresenceInSearch = false) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/changewxasearchstatus',
             { access_token: accessToken },
             { status: disallowPresenceInSearch ? 1 : 0 }
@@ -1020,7 +1020,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaCheckSearchPreference(accessToken: string) {
-        const result = await this.get<inf.WxaGetCurrentSearchPreferenceReceipt>(
+        const result = await this.getWithSearchParams<inf.WxaGetCurrentSearchPreferenceReceipt>(
             '/wxa/getwxasearchstatus',
             { access_token: accessToken }
         );
@@ -1030,7 +1030,7 @@ export class WxHTTP extends HTTPService {
 
 
     async wxaApplyForPlugin(accessToken: string, pluginId: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/plugin',
             { access_token: accessToken },
             { action: 'apply', plugin_appid: pluginId }
@@ -1040,7 +1040,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaListInstalledPlugin(accessToken: string) {
-        const result = await this.postJson<inf.WxaGetPluginsReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WxaGetPluginsReceipt>(
             '/wxa/plugin',
             { access_token: accessToken },
             { action: 'list' }
@@ -1050,7 +1050,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaUninstallPlugin(accessToken: string, pluginId: string) {
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/wxa/plugin',
             { access_token: accessToken },
             { action: 'unbind', plugin_appid: pluginId }
@@ -1060,7 +1060,7 @@ export class WxHTTP extends HTTPService {
     }
 
     async wxaAnalysisDailySummaryTrend(accessToken: string, beginDate: string, endDate: string) {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             list: Array<{
                 ref_date: string;
                 visit_total: number;
@@ -1079,7 +1079,7 @@ export class WxHTTP extends HTTPService {
     async wxaAnalysisVisitTrend(
         clientAccessToken: string, beginDate: string, endDate: string,
         scale: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             list: Array<{
                 ref_date: string;
                 session_cnt: number;
@@ -1101,7 +1101,7 @@ export class WxHTTP extends HTTPService {
     async wxaAnalysisVisitDistribution(
         clientAccessToken: string, beginDate: string, endDate: string
     ) {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             ref_date: string;
             list: Array<{
                 index: string | 'access_source_session_cnt' | 'access_staytime_info' | 'access_depth_info';
@@ -1119,7 +1119,7 @@ export class WxHTTP extends HTTPService {
     async wxaAnalysisRetainInfo(
         clientAccessToken: string, beginDate: string, endDate: string,
         scale: 'daily' | 'weekly' | 'monthly' = 'daily') {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             ref_date: string;
             visit_uv_new: Array<{ key: number; value: number }>;
             visit_uv: Array<{ key: number; value: number }>;
@@ -1135,7 +1135,7 @@ export class WxHTTP extends HTTPService {
     async wxaAnalysisVisitPage(
         clientAccessToken: string, beginDate: string, endDate: string
     ) {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             ref_date: string;
             list: Array<{
                 page_path: string;
@@ -1197,7 +1197,7 @@ export class WxHTTP extends HTTPService {
             }
         }
 
-        const result = await this.postJson<inf.WeChatErrorReceipt>(
+        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             `/cgi-bin/message/custom/send`,
             { access_token: clientAccessToken },
             qObj
@@ -1211,7 +1211,7 @@ export class WxHTTP extends HTTPService {
         type: 'image' | 'voice' | 'video' | 'thumb',
         dataStream: Readable,
         fileName?: string, mimeType?: string) {
-        const result = await this.postMultipart<inf.WeChatMediaUploadReceipt>(
+        const result = await this.postMultipartWithSearchParams<inf.WeChatMediaUploadReceipt>(
             '/cgi-bin/media/upload',
             {
                 access_token: clientAccessToken,
@@ -1230,7 +1230,7 @@ export class WxHTTP extends HTTPService {
     async wxaMediaCheckAsync(
         clientAccessToken: string, mediaUrl: string, type: 'image' | 'audio' = 'image'
     ) {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             trace_id: string;
             errcode: number;
             errmsg: string;
@@ -1247,7 +1247,7 @@ export class WxHTTP extends HTTPService {
     async wxaMsgSecCheck(
         clientAccessToken: string, content: string
     ) {
-        const result = await this.postJson<{
+        const result = await this.postJsonWithSearchParams<{
             errcode: number;
             errmsg: 'ok' | 'risky';
         }>(

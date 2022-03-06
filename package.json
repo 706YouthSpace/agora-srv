@@ -15,7 +15,7 @@
     "node": ">=16.0.0"
   },
   "dependencies": {
-    "@naiverlabs/tskit": "^0.3.2-650c5f3",
+    "@naiverlabs/tskit": "^0.3.3-08c602b",
     "ali-oss": "^6.1.1",
     "base62": "^2.0.1",
     "busboy": "^0.3.1",
@@ -44,7 +44,7 @@
     "node-fetch": "^2.6.2",
     "node-object-hash": "^1.4.2",
     "nodejieba": "^2.5.2",
-    "pino": "^6.14.0",
+    "pino": "^7.8.0",
     "redlock": "^4.0.0",
     "request": "^2.88.0",
     "rxjs": "^6.5.2",
@@ -79,6 +79,7 @@
     "@types/mongodb": "^4.0.7",
     "@types/node": "^16.11.26",
     "@types/node-fetch": "^2.5.12",
+    "@types/pino": "^7.0.5",
     "@types/redlock": "^3.0.4",
     "@types/request": "^2.48.2",
     "@types/uuid": "^3.4.5",

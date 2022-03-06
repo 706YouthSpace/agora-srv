@@ -2,7 +2,9 @@
     "typescript.tsdk": "node_modules/typescript/lib",
     "cSpell.words": [
         "Castable",
+        "errcode",
         "naiverlabs",
-        "tskit"
+        "tskit",
+        "wechat"
     ]
 }

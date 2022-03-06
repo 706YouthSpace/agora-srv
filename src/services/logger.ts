@@ -1,8 +1,9 @@
 import { AbstractLogger, LoggerInterface, LoggerOptions } from '@naiverlabs/tskit';
 import { container, singleton } from 'tsyringe';
-import { Config } from '../config';
 import pino from 'pino';
 import _ from 'lodash';
+
+import { Config } from '../config';
 
 @singleton()
 export class Logger extends AbstractLogger {

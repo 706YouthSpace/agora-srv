@@ -19,7 +19,6 @@ export const config = {
         miniprogramState:"trial" , // developer为开发版；trial为体验版；formal为正式版
         mchid:"1605653192",
         notifyUrl:"https://dev.access.naiver.org/api/activity/paymentNotify",
-        callbackBaseUri: "/",
         serviceHosts: [
             "x706.access.naiver.org",
             "gw.naiver.org"
@@ -28,7 +27,14 @@ export const config = {
             "x706.access.naiver.org",
             "gw.naiver.org",
             "mp.weixin.qq.com"
-        ]
+        ],
+        pay: {
+            mchid:"1619891040",
+            apiV3Key: "13810360402051086220184706706706",
+            notifyUrl:"https://dev.access.naiver.org/api/activity/paymentNotify",
+            certPath: "/data/apiclientCert/apiclient_cert.pem",
+            keyPath: "/data/apiclientCert/apiclient_key.pem",
+        }
     },
     seed: {
         sessionHasher: "x706",

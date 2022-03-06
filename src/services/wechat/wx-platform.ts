@@ -8,11 +8,11 @@ import _ from 'lodash';
 import {
     wxOpenPlatformSignatureSha1, wxOpenPlatformDecryptB64, wxOpenPlatformEncryptB64,
     wxMiniProgramDecryptB64, wxMiniProgramSignatureSha1
-} from './wx-cryptology';
+} from './rpc/wx-cryptology';
 
 const logger = console;
 
-import { wxErrors } from './wx-errors';
+import { wxErrors } from './rpc/wx-errors';
 import { Readable } from 'stream';
 import { singleton } from 'tsyringe';
 import { AsyncService, ApplicationError, Defer, retry } from '@naiverlabs/tskit';

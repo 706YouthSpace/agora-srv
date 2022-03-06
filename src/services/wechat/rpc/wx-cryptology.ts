@@ -214,7 +214,7 @@ export interface WxPayAEADEncryptedJSONObject {
     original_type?: 'transaction' | string;
 }
 
-export function wxPayDecryptJSONObject(obj: WxPayAEADEncryptedJSONObject, key: Buffer) {
+export function wxPayDecryptJSONObject(obj: WxPayAEADEncryptedJSONObject, key: string) {
     if (obj.algorithm !== 'AEAD_AES_256_GCM') {
         throw new Error('Unsupported algorithm, what year is it ?');
     }
@@ -222,9 +222,9 @@ export function wxPayDecryptJSONObject(obj: WxPayAEADEncryptedJSONObject, key: B
     const r = JSON.parse(
         wxPayDecryptAEAD(
             Buffer.from(obj.ciphertext, 'base64'),
-            key,
+            Buffer.from(key, 'utf-8'),
             Buffer.from(obj.nonce, 'utf-8'),
-            Buffer.from(obj.associated_data, 'utf-8')
+            Buffer.from(obj.associated_data || '', 'utf-8')
         ).toString()
     );
 

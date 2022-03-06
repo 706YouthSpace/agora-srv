@@ -8,14 +8,12 @@ import { MongoCollection } from './base';
 
 export interface Config {
     _id: string;
-
-    [k: string]: any;
-
     __lockedBy?: string;
     __lockedUntil?: Date;
-
+    
     __version: number;
-
+    
+    [k: string]: any;
     createdAt: Date;
     updatedAt: Date;
 }
