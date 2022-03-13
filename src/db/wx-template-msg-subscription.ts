@@ -35,6 +35,14 @@ export class WxTemplateMsgSubscription extends AutoCastable {
 @singleton()
 export class MongoWxTemplateMsgSubscription extends MongoCollection<WxTemplateMsgSubscription> {
     collectionName = 'wxTemplateMsgSubscription';
+    typeclass = WxTemplateMsgSubscription;
+
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 
 }
 

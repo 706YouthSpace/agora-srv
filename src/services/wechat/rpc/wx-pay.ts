@@ -3,7 +3,8 @@ import { KeyObject, randomBytes, X509Certificate } from "crypto";
 import _ from "lodash";
 import { Readable } from "stream";
 import { wxPayDecryptJSONObject, wxPayOAEPDecrypt, wxPayOAEPEncrypt, wxPayRSASha256Vefify, wxPaySign } from "./wx-cryptology";
-import { WxPayCreateTrasactionDto } from "../dto/wx-pay-wxa";
+import { WxPayCreateTransactionDto } from "../dto/wx-pay-wxa";
+import { stringify as formDataStringify } from 'querystring';
 import { APPLICATION_ERROR } from "../../errors";
 
 
@@ -43,6 +44,7 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
 
         this.platformX509Certificates.push(...(options.platformX509Certificates || []));
 
+        this.init();
     }
 
     init() {
@@ -68,12 +70,14 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
 
             const authHeader =
                 `WECHATPAY2-SHA256-RSA2048 mchid="${this.mchId}",nonce_str="${nonce}",` +
-                `timestamp="${ts}",serial_no="${this.x509Certificate.serialNumber},signature="${signature}"`;
+                `timestamp="${ts}",serial_no="${this.x509Certificate.serialNumber}",signature="${signature}"`;
 
-            if (!config.headers) {
+            if (config.headers) {
+                (config.headers as any).set('Authorization', authHeader);
+            } else {
                 config.headers = {};
+                (config.headers as any)['Authorization'] = authHeader;
             }
-            (config.headers as any)['Authorization'] = authHeader;
 
         });
     }
@@ -167,7 +171,9 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
             '/v3/certificates',
             {
                 responseType: 'json',
-                headers: { 'User-Agent': `${process.title} Node.js ${process.version}` },
+                headers: {
+                    'User-Agent': `${process.title} Node.js ${process.version}`
+                },
                 bypassSignatureVerification: true
             }
         );
@@ -185,20 +191,20 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
         return results as Array<{ serial_no: string; effective_time: string; expire_time: string; encrypt_certificate: string }>;
     }
 
-    async createTransactionJSAPI(options: Partial<WxPayCreateTrasactionDto>) {
-        const dto = WxPayCreateTrasactionDto.from<WxPayCreateTrasactionDto>(options);
+    async createTransactionJSAPI(options: Partial<WxPayCreateTransactionDto>) {
+        const dto = WxPayCreateTransactionDto.from<WxPayCreateTransactionDto>(options);
 
         const r = await this.postJson('/v3/pay/transactions/jsapi', dto);
 
         return r.data as { prepay_id: string };
     }
 
-    signWxaPayment(appId: string, prepayId: string) {
+    signWxaPayment(appId: string, wxPayPkg: { [k: string]: any }) {
         const timeStamp = Math.floor(Date.now() / 1000).toString();
 
         const nonceStr = randomBytes(16).toString('hex').toUpperCase();
 
-        const wxPayPackage = `prepay_id=${prepayId}`;
+        const wxPayPackage = formDataStringify(wxPayPkg);
 
         const signType = 'RSA';
 

@@ -1,18 +1,20 @@
-import { RPCHost } from "@naiverlabs/tskit";
+import { ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { ChangeStreamDocument, ObjectId } from "mongodb";
 import _ from "lodash";
 
-import { Pick, RPCMethod } from "./civi-rpc";
+import { Pick, RPCMethod } from "./civi-rpc/civi-rpc";
 import { MongoLiveConfig } from "../db/live-config";
-import { WxPlatformService } from "../services/wechat/wx-platform";
 import { Config } from "../config";
 import { Session } from "./dto/session";
 import { MongoUser, User } from "../db/user";
-import { MongoEvent, VERIFICATION_STATUS } from "../db/event";
+import { Event, MongoEvent } from "../db/event";
 import {
-    MongoTransaction, Transaction, TRANSACTION_STATUS, WxSpecificTransactionDetails
+    MongoTransaction,
 } from "../db/transaction";
+import { Pagination } from "./dto/pagination";
+import { MongoEventTicket } from "../db/event-ticket";
+import { WxService } from "../services/wechat/wx";
 
 interface WxaConf {
     appId: string;
@@ -27,9 +29,10 @@ export class UserRPCHost extends RPCHost {
     constructor(
         protected mongoLiveConfig: MongoLiveConfig,
         protected config: Config,
-        protected wxService: WxPlatformService,
+        protected wxService: WxService,
         protected mongoUser: MongoUser,
         protected mongoEvent: MongoEvent,
+        protected mongoEventTicket: MongoEventTicket,
         protected mongoTransaction: MongoTransaction,
     ) {
         super(...arguments);
@@ -74,57 +77,36 @@ export class UserRPCHost extends RPCHost {
         if (bio) {
             patch.bio = bio;
         }
-        await this.mongoUser.updateOne({ _id: user._id }, { $set: patch, updatedAt: new Date() });
-
-        const createActList = await this.mongoEvent.simpleFind({
-            creatorId: user._id,
-            status: VERIFICATION_STATUS.PASSED
-        });
-
-        const joinActList = await this.mongoTransaction.simpleFind({
-            fromUser: user._id,
-            status: TRANSACTION_STATUS.COMPLETED
-        });
+        const r = await this.mongoUser.updateOne({ _id: user._id }, { $set: patch, updatedAt: new Date() });
 
         return {
+            ...r,
             avatarUrl: user.avatar,
             nickName: user.nickName,
             bio: user.bio,
-
-            createActList,
-            joinActList
         }
     }
 
     @RPCMethod('user.get')
     async getUser(
-        @Pick('id') id: ObjectId,
+        session: Session,
+        @Pick('id') id?: ObjectId,
     ) {
-        const user = await this.mongoUser.get(id)
-
-        const createActList = await this.mongoEvent.simpleFind({
-            creatorId: id,
-            status: VERIFICATION_STATUS.PASSED
-        }).toArray()
-
-        const joinActList = await this.mongoSignUp.collection.find({
-            userId: id,
-            paid: 'Y'
-        }).toArray()
-
-        return {
-            // @ts-ignore
-            avatarUrl: user.avatarUrl,
-            // @ts-ignore
-            nickName: user.nickName,
-            // @ts-ignore
-            bio: user.bio,
-            createActList,
-            joinActList
+        let uid = id;
+        if (!uid) {
+            const me = await session.assertUser();
+            uid = me._id;
         }
+        const user = await this.mongoUser.findOne({ _id: uid });
+
+        if (!user) {
+            throw new ResourceNotFoundError(`User(${uid}) not found`);
+        }
+
+        return User.from<User>(user).toTransferDto();
     }
 
-    @RPCMethod('user.login')
+    @RPCMethod('user.wxaLogin')
     async wxaLogin(
         @Pick('code') code: string,
         session: Session,
@@ -149,7 +131,61 @@ export class UserRPCHost extends RPCHost {
 
         await session.save();
 
-        return this.mongoUser.sanitize(user);
+        return User.from<User>(user).toTransferDto();
+    }
+
+    @RPCMethod('my.transaction.list')
+    async listMyEventTickets(
+        session: Session,
+        pagination: Pagination
+    ) {
+        const user = await session.assertUser();
+
+        const transactions = await this.mongoTransaction.simpleFind({
+            fromUserId: user._id,
+        }, {
+            skip: pagination.getSkip(),
+            limit: pagination.getLimit(),
+        });
+
+
+        pagination.setMeta(transactions, {
+            total: await this.mongoTransaction.count({ fromUserId: user._id }),
+        });
+
+        return transactions;
+    }
+
+    @RPCMethod('my.eventTicket.list')
+    async getMyEvent(
+        session: Session,
+        pagination: Pagination
+    ) {
+        const user = await session.assertUser();
+        const query = {
+            userId: user._id,
+            // paid: 'Y'
+        }
+
+        const tickets = await this.mongoEventTicket.simpleFind(query, {
+            skip: pagination.getSkip(),
+            limit: pagination.getLimit(),
+        });
+
+        const events = await this.mongoEvent.simpleFind({
+            _id: { $in: tickets.map((t) => t.eventId) }
+        });
+
+        const eventDtos = events.map((x)=> {
+            return Event.from<Event>(x).toTransferDto();
+        })
+
+        pagination.setMeta(tickets, {
+            events: eventDtos,
+            total: await this.mongoEventTicket.count({ userId: user._id }),
+        });
+
+        return tickets;
     }
 
 }

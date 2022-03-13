@@ -6,7 +6,8 @@ import { isIPv4 } from "net";
 import { IncomingMessage } from "http";
 import { URL } from "url";
 import { InjectProperty } from "../../lib/property-injector";
-import { MongoUser, User } from "db/user";
+import { MongoUser, User } from "../../db/user";
+import moment from "moment";
 
 export const SESSION_TOKEN_HEADER_NAME = 'X-Session-Token';
 export const SET_SESSION_TOKEN_HEADER_NAME = 'X-Set-Session-Token';
@@ -126,7 +127,7 @@ export class Session extends Dto<ContextLike> {
 
         await this.mongoSession.serviceReady();
 
-        return this.mongoSession.set(this.sessionId, this.data);
+        return this.mongoSession.set(this.sessionId, { ...this.data, expireAt: moment().add(7, 'days').toDate() });
     }
 
     async clear() {
@@ -183,13 +184,21 @@ export class Session extends Dto<ContextLike> {
             throw new AuthenticationRequiredError({ message: 'User login required' });
         }
 
-        this.user = await this.mongoUser.findOne({ _id: this.data.user });    
+        this.user = await this.mongoUser.findOne({ _id: this.data.user });
 
         if (!this.user) {
             throw new AuthenticationFailedError({ message: 'Please re-login' });
         }
 
         return this.user;
+    }
+
+    async getUser() {
+        try {
+            return await this.assertUser();
+        } catch (err) {
+            return undefined;
+        }
     }
 
 }

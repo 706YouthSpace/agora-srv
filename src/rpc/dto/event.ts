@@ -1,8 +1,6 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
 import { EVENT_SENSOR_STATUS, EVENT_TYPE } from "../../db/event";
-// import { URL } from "url";
-//import { PersonalInfo } from "db/activity";
 
 export function wxGcj02LongitudeLatitude(input: [number, number]) {
     if (input.length !== 2) {

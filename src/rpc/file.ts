@@ -1,11 +1,12 @@
 import { FancyFile, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
-import { Pick, RPCMethod } from "./civi-rpc";
-import { MongoFile } from "../db/file";
+import { Pick, RPCMethod } from "./civi-rpc/civi-rpc";
+import { FileRecord, MongoFile } from "../db/file";
 //import { config } from "../config";
-import { StorageManager } from "../services/storage";
-import { UploadedFile } from "../api/middlewares/body-parser";
+import { UploadedFile } from "./civi-rpc/body-parser";
+import { Session } from "./dto/session";
+import { X706ObjectStorage } from "../services/object-storage/x706";
 //import { SessionUser } from "./dto/user";
 
 @singleton()
@@ -13,7 +14,7 @@ export class FileUploadRPCHost extends RPCHost {
 
     constructor(
         protected mongoFile: MongoFile,
-        protected localFileStorage: StorageManager
+        protected x706ObjectStorage: X706ObjectStorage,
     ) {
         super(...arguments);
         this.init();
@@ -25,42 +26,35 @@ export class FileUploadRPCHost extends RPCHost {
     }
 
 
-    @RPCMethod('file.saveRandomFile')
-    async saveRandomFile(
-        //sessionUser: SessionUser,
-
-        @Pick('file', { type: FancyFile })
-        file: UploadedFile
-    ) {
-        //const userId = await sessionUser.assertUser();
-        await file.ready;
-        const fileName = await file.sha256Sum;
-        await this.localFileStorage.storeFancyFile(file, fileName);
-
-        return fileName;
-    }
-
     @RPCMethod('file.upload')
     async upload(
         // sessionUser: SessionUser,
         @Pick('file', { type: FancyFile })
-        file: UploadedFile
+        file: UploadedFile,
+        session: Session
     ) {
         // const userId = await sessionUser.assertUser();
         await file.ready;
-        const fileName = await file.sha256Sum;
 
-        //let fileRcd = <FileRecord>{};
-        //let fileRcd: any ;
-        //fileRcd.owner = userId ;
-        //fileRcd.mimeType = file.claimedMime==undefined?"":file.claimedMime ;
-        //fileRcd.name = fileRcd.mimeType=="" ? fileRcd.sha256SumHex : fileRcd.sha256SumHex+"."+fileRcd.mimeType;
-        //fileRcd.createdAt = new Date;
+        const user = await session.getUser();
+
+        const fileRecord = FileRecord.from<FileRecord>({
+            ownerId: user?._id,
+            sha256Hex: await file.sha256Sum,
+            name: await file.fileName,
+            mimeType: await file.mimeType,
+            size: await file.size,
+        });
+
+
+        await this.x706ObjectStorage.putSingleFile(file, `f/${fileRecord._id}`)
+        const record = await this.mongoFile.create(fileRecord);
 
         //const storeDir = _.get(config, 'storage.sha256Root');
-        await this.localFileStorage.storeFancyFile(file, fileName, fileName);
 
-        return fileName;
+        const url = await this.x706ObjectStorage.signDownloadObject(`f/${fileRecord._id}`, 86400);
+
+        return { ...record, url };
     }
 
 }

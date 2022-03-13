@@ -2,14 +2,14 @@ import { RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import _ from "lodash";
 import { RPCMethod } from "./civi-rpc";
-import { MongoActivityTag } from "../db/activityTag";
+import { MongoLiveConfig } from "../db/live-config";
 //import logger from '../services/logger';
 
 @singleton()
 export class ActivityTagRPCHost extends RPCHost {
 
     constructor(
-        protected mongoActivityTag: MongoActivityTag,
+        protected mongoLiveConfig: MongoLiveConfig,
     ) {
         super(...arguments);
 
@@ -21,12 +21,12 @@ export class ActivityTagRPCHost extends RPCHost {
         this.emit('ready');
     }
 
-    @RPCMethod('activityTag.get')
+    @RPCMethod('predefined.get')
     async get() {
-        const query: any = {};
-        const result = await this.mongoActivityTag.collection.find(query).toArray();
+        const r = await this.mongoLiveConfig.findOne({_id: 'predefined.eventTags'})
+        
        
-        return result;
+        return r?.tags;
     }
 
 

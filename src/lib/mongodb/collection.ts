@@ -1,6 +1,5 @@
 import { Collection } from "mongodb";
-import { AsyncService, AbstractMongoCollection } from "@naiverlabs/tskit";
-import { AbstractMongoDB } from "./client";
+import { AbstractMongoCollection, AbstractMongoDB } from "@naiverlabs/tskit";
 
 
 export abstract class MongoHandle<T extends object> extends AbstractMongoCollection<T> {

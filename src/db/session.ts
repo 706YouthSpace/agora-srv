@@ -24,6 +24,14 @@ export class Session extends AutoCastable {
 @singleton()
 export class MongoSession extends MongoCollection<Session> {
     collectionName = 'sessions';
+    typeclass = Session;
+
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 
     clear(_id: ObjectId) {
         return this.deleteOne({ _id });

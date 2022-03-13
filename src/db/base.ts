@@ -6,15 +6,6 @@ import { AbstractMongoCollection, AbstractMongoDB } from '@naiverlabs/tskit';
 import { InjectProperty } from "../services/property-injector";
 import { Config } from '../config';
 
-export abstract class MongoCollection<T extends Document, P = ObjectId> extends AbstractMongoCollection<T, P> {
-
-    @InjectProperty()
-    mongo!: MongoDB;
-
-    typeclass: any = undefined;
-
-}
-
 @singleton()
 export class MongoDB extends AbstractMongoDB {
     options?: MongoClientOptions;
@@ -24,7 +15,31 @@ export class MongoDB extends AbstractMongoDB {
         super(...arguments);
         this.options = config.mongoOptions;
         this.url = config.mongoUrl;
+        this.init().catch((err) => this.emit('error', err));
     }
+
+    override async init() {
+
+        await super.init();
+
+        this.emit('ready');
+    }
+
+}
+
+export abstract class MongoCollection<T extends Document, P = ObjectId> extends AbstractMongoCollection<T, P> {
+
+    @InjectProperty()
+    mongo!: MongoDB;
+
+    typeclass: any = undefined;
+
+    override async init() {
+        await super.init();
+
+        this.emit('ready');
+    }
+
 }
 
 export const mongoClient = container.resolve(MongoDB);

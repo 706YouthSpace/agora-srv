@@ -37,6 +37,15 @@ export const config = {
     },
     storage: {
         sha256Root: "/data/sha256storage"
+    },
+    aliyun: {
+        user: 'wxa-server@706er.onaliyun.com',
+        accessKey: 'LTAI5tNuUwcL8snboU3q2Me6',
+        accessSecret: 'bRjbKctCcpZvNxochGau9X7cAcIwVj',
+
+        ossEndpint: 'oss-cn-beijing.aliyuncs.com',
+        ossBucket: 'x706'
+        // ossInternal: 'x706.oss-cn-beijing-internal.aliyuncs.com',
     }
 };
 

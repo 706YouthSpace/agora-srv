@@ -4,26 +4,26 @@ import { singleton } from "tsyringe";
 import { URL } from "url";
 import _ from "lodash";
 import { ObjectId } from "mongodb";
+import moment from 'moment';
 
-import { Pick, RPCMethod } from "./civi-rpc";
+import { Pick, RPCMethod } from "./civi-rpc/civi-rpc";
 import { Event, EVENT_SENSOR_STATUS, MongoEvent } from "../db/event";
-import { CURRENCY, MongoTransaction, Transaction, TRANSACTION_REASON, TRANSACTION_STATUS, WxSpecificTransactionDetails } from "../db/transaction";
+import { CURRENCY, mapWxTradeStateToTransactionProgress, mapWxTransactionProgressToTransactionStatus, MongoTransaction, Transaction, TRANSACTION_PROGRESS, TRANSACTION_REASON, TRANSACTION_STATUS } from "../db/transaction";
 import { MongoWxTemplateMsgSubscription } from "../db/wx-template-msg-subscription";
 //import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
 //import { wxTempMsgSub } from "./dto/wxTempMsgSub";
 import { GB2260 } from "../lib/gb2260";
 import { DraftEvent } from "./dto/event";
-import { SignUp } from "./dto/signUp";
 import { MongoUser, User } from "../db/user";
-import { WxPayHTTPv3 as WxPayHTTP } from "../services/wechat/wx-pay-v3";
-import { config, Config } from "../config";
-import { MongoSite } from "../db/site";
+import { Config } from "../config";
+import { MongoSite, Site } from "../db/site";
 import { Session } from "./dto/session";
-import { EventTicket, MongoEventTicket, TICKET_STATUS } from "db/event-ticket";
+import { EventTicket, MongoEventTicket, TICKET_STATUS } from "../db/event-ticket";
 import { WxService } from "../services/wechat/wx";
-import { WxPayCreateTransactionDto } from "../services/wechat/dto/wx-pay-wxa";
-//import { Context } from "koa";
+import { WxPayNotificationDto } from "../services/wechat/dto/wx-pay-common";
+
+import globalLogger from '../services/logger';
 
 
 // enum GB2260GRAN {
@@ -41,6 +41,8 @@ export class EventRPCHost extends RPCHost {
     //     platformCertificateFilePath: config.wechat.wxPayPlatformCertDir,
     //     platformCertificateSerial: config.wechat.wxPayPlatformCertSerial,
     // });
+
+    logger = globalLogger.child({ service: 'eventRPC' });
 
     constructor(
         protected mongoEvent: MongoEvent,
@@ -107,7 +109,7 @@ export class EventRPCHost extends RPCHost {
         const r = await this.mongoEvent.create(event);
         // 若活动创建成功，还需给管理员发短信，通知他来审核。。。
 
-        return r;
+        return Event.from<Event>(r).toTransferDto();
     }
     /*{  pageSize:   
         pageIndex: 从1开始  
@@ -141,45 +143,36 @@ export class EventRPCHost extends RPCHost {
         if (locationGB2260) {
             query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
         }
-        query.verified = auth ? 'draft' : 'passed';  // 临时注释，后面需去掉注释
+        if (auth !== undefined) {
+            query.verified = Boolean(auth);
+        }
 
-        const result = await this.mongoEvent.collection.aggregate(
-            [
-
-                {
-                    $geoNear: {
-                        near: { type: "Point", coordinates: [longitude, latitude] },
-                        spherical: true,
-                        key: "locationCoord",
-                        query: query,
-                        distanceField: "calcDistance"
-                    }
-                },
-                {
-                    $lookup:
-                    {
-                        from: this.mongoSite.collectionName,
-                        localField: "site",
-                        foreignField: "_id",
-                        as: "site_info"
-                    }
-                },
-                { $match: query },
-                { $unwind: "$site_info" },
-                {
-                    $addFields: {
-                        isEnd:
-                            { $lte: ["$endAt", "$$NOW"] }
-                    }
+        const events = await this.mongoEvent.simpleFind(
+            query,
+            {
+                skip: pagination.getSkip(),
+                limit: pagination.getLimit(),
+                sort: {
+                    startAt: -1
                 }
-            ],
-        ).skip(pagination.getSkip())
-            .limit(pagination.getLimit())
-            .toArray();  //  .sort({ updatedAt: -1 }) 
+            }
+        );
 
-        pagination.setMeta(result);
+        const mapped = events.map((x) => Event.from<Event>(x).toTransferDto());
 
-        return result;
+        const sites = await this.mongoSite.simpleFind(
+            {
+                _id: {
+                    $in:
+                        events.map((e) => e.siteId!).filter(Boolean)
+                }
+            }
+        );
+        const sitesMapped = sites.map((x) => Site.from<Site>(x).toTransferDto());
+
+        pagination.setMeta(events, { sites: sitesMapped, total: await this.mongoEvent.count(query) });
+
+        return mapped;
     }
 
     @RPCMethod('event.getParticipants')
@@ -205,20 +198,13 @@ export class EventRPCHost extends RPCHost {
                 { paid: true },
                 { needToPay: false }
             ]
-        })
+        });
 
         const participants = await this.mongoUser.simpleFind({
             _id: { $in: tickets.map((t) => t.userId) }
-        }, {
-            projection: {
-                nickName: true,
-                realName: true,
-                avatar: true,
-                bio: true
-            }
-        })
+        });
 
-        return { participants }
+        return participants.map((x) => User.from<User>(x).toTransferDto());
     }
 
 
@@ -255,7 +241,7 @@ export class EventRPCHost extends RPCHost {
         session: Session,
         @Pick('id', { required: true }) id: ObjectId,
     ) {
-        await session.assertUser();
+        const user = await session.assertUser();
         const event = await this.mongoEvent.findOne({ _id: id });
         if (!event) {
             throw new ResourceNotFoundError(`Referenced resource not found: event(${id})`);
@@ -283,10 +269,11 @@ export class EventRPCHost extends RPCHost {
         const creator = await this.mongoUser.findOne({ _id: event.creatorId });
 
         return {
-            ...event,
-            site,
-            creator,
-            participants,
+            ...Event.from<Event>(event).toTransferDto(),
+            site: site ? Site.from<Site>(site).toTransferDto() : undefined,
+            creator: creator ? User.from<User>(creator).toTransferDto() : undefined,
+            participants: participants.map((x) => User.from<User>(x).toTransferDto()),
+            participating: participants.some((x) => x._id.toHexString() === user._id.toHexString())
         }
     }
 
@@ -320,6 +307,7 @@ export class EventRPCHost extends RPCHost {
     async submitSignUp(
         session: Session,
         @Pick('id', { required: true }) eventId: ObjectId,
+        @Pick('info') infoObj?: { [k: string]: any },
         @Pick('wxTemplateMsgId') wxTempMsgId?: string,
     ) {
         const user = await session.assertUser();
@@ -336,7 +324,7 @@ export class EventRPCHost extends RPCHost {
             userId: user._id,
             eventId: event._id,
             needToPay,
-
+            info: infoObj,
             status: needToPay ? TICKET_STATUS.PENDING_PAYMENT : TICKET_STATUS.VALID,
 
             wxAppId: this.config.get('wechat.appId'),
@@ -383,274 +371,124 @@ export class EventRPCHost extends RPCHost {
             if (!transaction) {
                 throw new ResourceNotFoundError(`Referenced resource not found: transaction(${ticket.transactionId})`);
             }
-        } else {
+            if (transaction.expireAt! < new Date()) {
+                transaction = undefined;
+            }
+        }
+
+        if (!transaction) {
             transaction = Transaction.from({
                 title: `活动门票: ${event.title} - ${ticket._id}`,
                 reason: TRANSACTION_REASON.EVENT_TICKET_PURCHASE,
                 fromUserId: user._id,
                 pricing: event.pricing,
                 currencyType: CURRENCY.CNY,
-                status: TRANSACTION_STATUS.CREATED
+                status: TRANSACTION_STATUS.CREATED,
+                targetId: ticket._id,
+                targetType: this.mongoEventTicket.collectionName,
+
+                expireAt: moment().add(1, 'day').toDate(),
             });
             transaction = await this.mongoTransaction.create(transaction!);
         }
 
-        this.wxService.createWxPayTransaction({
-            description: transaction.title,
-            out_trade_no: transaction._id.toHexString(),
-            attach: transaction._id.toHexString(),
-            amount: {
-                total: event.pricing,
+        const now = new Date();
+
+        _.merge(transaction, {
+            wxPay: {
+                merchId: this.wxService.wxPay.mchId,
+                appId: this.wxService.wxConfig.appId,
+                openId: user.wxOpenId[this.wxService.wxConfig.appId],
+                progress: TRANSACTION_PROGRESS.INITIATED,
+
+                initiatedAt: now,
+                expireAt: moment(now).add(2, 'hours').toDate(),
+            },
+            status: TRANSACTION_STATUS.PAYMENT_PENDING
+        });
+
+        const transactionObj = Transaction.from<Transaction>({
+            ...transaction
+        });
+
+
+        const wxReply = await this.wxService.createWxPayTransaction(transactionObj.createWxTransactionCreationDto());
+
+        _.merge(transactionObj, {
+            wxPay: {
+                wxResult: wxReply,
+                progress: TRANSACTION_PROGRESS.IN_PROGRESS
             }
         });
 
-        const outTradeNo = Date.now().toString();
-        const param = {
-            appid: config.wechat.appId,
-            mchid: config.wechat.mchid,
-            description: signUpInfo[0].activities_info.title,
-            out_trade_no: outTradeNo,
-            notify_url: config.wechat.notifyUrl,
-            amount: { total: signUpInfo[0].activities_info.pricing * 100 }, // 订单总金额，单位为分
-            payer: { openid: openId }
+        await this.mongoTransaction.save(transactionObj);
 
-        };
-        console.log("signUpId: " + signUpId);
+        const sig = this.wxService.wxPaySign({
+            prepay_id: wxReply.prepay_id,
+        });
 
-        let rslt = await this.wxPayHttp.execWxPay(param);//  this.wxPayHttp.createTransactionJSAPI(param);
-        //console.log(rslt);
-
-        const update = { outTradeNo: outTradeNo, wxPrepayId: rslt.data.prepay_id };
-        await this.mongoSignUp.set(signUpId, update);
-
-        // const authorization=rslt.config.headers.Authorization ;
-        //let indexTime=authorization.indexOf("timestamp=");
-        //let indexNonce=authorization.indexOf("nonce_str=");
-        //let indexSign=authorization.indexOf("signature=");
-
-        let rt = {
-            timeStamp: Math.floor(Date.now() / 1000), // authorization.substr(indexTime+11,10),
-            nonceStr: this.wxPayHttp.randomString(32),// authorization.substr(indexNonce+11,32),
-            package: "prepay_id=" + rslt.data.prepay_id,
-            signType: "RSA",
-            paySign: "",
-        };
-        let strToSign = config.wechat.appId + '\n' +
-            rt.timeStamp + '\n' +
-            rt.nonceStr + '\n' +
-            rt.package + '\n';
-        // console.log("strToSign: ");
-        // console.log(strToSign);
-        let paySignStr = this.wxPayHttp.rsaSign(strToSign, config.wechat.apiclientKeyDir); // this.wxPayHttp.doSignShellCmd(strToSign,config.wechat.apiclientKeyDir);
-        rt.paySign = paySignStr;
-        console.log("rt: ");
-        console.log(rt);
-        return rt;
+        return {
+            ...sig,
+            transaction
+        }
     }
 
-    @RPCMethod('activity.paymentNotify')
-    async paymentNotify(
-        @Pick('event_type') event_type: string,
-        @Pick('summary') summary: string
-
+    @RPCMethod('wxpay.notify')
+    async wxpayNotify(
+        wxPayNotification: WxPayNotificationDto
     ) {
-        // console.log("event_type: "+event_type);
-        // console.log("summary: "+summary);
+        let resource: { [k: string]: any } | undefined = wxPayNotification.resource;
+        if (wxPayNotification.resource_type === 'encrypt-resource') {
+            resource = this.wxService.wxPay.decryptJSON(wxPayNotification.resource);
+        }
 
-        // console.log("associated_data: ");
-        // console.log(resource.associated_data); 
-        // console.log("nonce: ");
-        // console.log(resource.nonce);
-        // let decryptData=this.wxPayHttp.decryptAES_GCM(config.wechat.apiv3Key,resource.ciphertext,resource.associated_data); 
-        // console.log("decryptData: ");
-        // console.log(decryptData);
-        if ("TRANSACTION.SUCCESS" === event_type) {
-            // let payResult:any={}; 
-            // payResult.wxPaidTimeEnd =time_end!=undefined?time_end:"" ;
-            // payResult.outTradeNo = out_trade_no!=undefined?out_trade_no:"";
-            // payResult.wxTransactionId = transaction_id!=undefined?transaction_id:"";
-            // payResult.wxReturnCode = return_code!=undefined?return_code:"";
-            // payResult.wxResultCode = result_code!=undefined?result_code:"";
+        if (!resource) {
+            return {
+                code: 'FUCKED',
+                message: 'YOU FUCKED UP'
+            }
+        }
 
-            // //let payResult={wxReturnCode:return_code, wxReturnMsg: return_msg };
-            // await this.mongoSignUp.collection.updateOne(
-            //     { "outTradeNo" : payResult.outTradeNo }, // specifies the document to update
-            //     {
-            //       $set: payResult
-            //     }
-            // ) ;
+        switch (wxPayNotification.event_type) {
+            case 'TRANSACTION.SUCCESS': {
+                const now = new Date();
+                const transaction = await this.mongoTransaction.updateOne(
+                    { _id: new ObjectId(resource.out_trade_no), status: { $ne: TRANSACTION_STATUS.PAYMENT_SUCCEEDED } },
+                    {
+                        $set: {
+                            'wxPay.wxTransactionId': resource.transaction_id,
+                            'wxPay.progress': mapWxTradeStateToTransactionProgress(resource.trade_state),
+                            'wxPay.completedAt': new Date(resource.success_time),
+                            'wxPay.updatedAt': now,
+                            [`wxPay.wxResult.${wxPayNotification.id}`]: { ...wxPayNotification, resource },
 
-            let backWx = {
-                "code": event_type,
-                "message": summary
-            };
-            return backWx;
-        } else {
-            let errResult = {
-                "code": event_type,
-                "message": summary
-            };
-            return errResult;
+                            status: mapWxTransactionProgressToTransactionStatus(mapWxTradeStateToTransactionProgress(resource.trade_state)),
+                            updatedAt: now,
+                        }
+                    }
+                );
+
+                if (transaction?.targetId && transaction.targetType === this.mongoEventTicket.collectionName) {
+                    const ticket = await this.mongoEventTicket.findOne({ _id: transaction.targetId });
+                    if (ticket) {
+                        await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { status: TICKET_STATUS.VALID } });
+
+                        await this.mongoTransaction.updateOne({ _id: transaction._id }, { $set: { status: TRANSACTION_STATUS.COMPLETED, updatedAt: new Date() } });
+                    }
+                }
+
+                break;
+            }
+            default: {
+                this.logger.warn(`Unknown WxPay notification: ${wxPayNotification.event_type}`, wxPayNotification);
+
+                break;
+            }
+        }
+
+        return {
+            code: 'SUCCESS'
         }
 
     }
-
-    @RPCMethod('activity.orderQuery')
-    async orderQuery(
-        @Pick('signUpId') signUpId: ObjectId,
-        sessionUser: SessionUser
-    ) {
-        await sessionUser.assertUser();
-        const rtn: any = {};
-        const payResult = await this.mongoSignUp.get(signUpId) as any;
-        if (payResult.wxReturnCode === undefined || payResult.wxReturnCode === null || payResult.wxReturnCode === "") {
-            // https://api.mch.weixin.qq.com/pay/orderquery 
-
-            return rtn;
-        } else {
-            rtn.wxPaidTimeEnd = payResult.wxPaidTimeEnd;
-            rtn.outTradeNo = payResult.outTradeNo;
-            rtn.wxTransactionId = payResult.wxTransactionId;
-            rtn.wxReturnCode = payResult.wxReturnCode;
-            rtn.wxResultCode = payResult.wxResultCode;
-            rtn.wxErrCode = payResult.wxErrCode;
-            rtn.wxErrCodeDes = payResult.wxErrCodeDes;
-
-            return rtn;
-        }
-
-    }
-
-    // @RPCMethod('activity.wxTempMsgSub')
-    // async wxTempMsgSub(
-    //     draft: wxTempMsgSub) {
-    //     if("subscribe_msg_popup_event"!=draft.Event){
-    //         return ;
-    //     }
-    //     const draftWxTempMsgSub = {
-    //         ToUserName: draft.ToUserName,
-    //         FromUserName: draft.FromUserName,
-    //         CreateTime: draft.CreateTime,
-    //         TemplateId: draft.SubscribeMsgPopupEvent[0].TemplateId,
-    //         SubscribeStatusString: draft.SubscribeMsgPopupEvent[0].SubscribeStatusString,
-    //         Sent: "N"
-    //     }
-    //     await this.mongoWxTempMsgSub.create(draftWxTempMsgSub);
-    //     return ;
-    // }
-
-    // @RPCMethod('site.find')
-    // async find(
-    //     pagination: Pagination,
-    //     @Pick('name') name?: string,
-    //     @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
-    //     @Pick('location') locationText?: string,
-    //     @Pick('locationGB2260') locationGB2260?: string,
-    //     @Pick('locationNear', { arrayOf: Number, validateArray: wxGcj02LongitudeLatitude })
-    //     locationNear?: [number, number],
-    //     @Pick('distance', { arrayOf: Number, validate: (x: number) => x > 0 })
-    //     distance?: number,
-    //     @Pick('tags', { arrayOf: String }) tags?: string[]
-    // ) {
-    //     const query: any = {};
-    //     if (name) {
-    //         query.name = { $regex: new RegExp(`.*${this.escapeRegExp(name)}.*`, 'gi') };
-    //     }
-    //     if (type) {
-    //         query.type = { $in: type };
-    //     }
-    //     if (tags) {
-    //         query.tags = { $in: tags };
-    //     }
-    //     if (locationText) {
-    //         query.locationText = { $regex: new RegExp(`.*${this.escapeRegExp(locationText)}.*`, 'gi') };
-    //     }
-    //     if (locationGB2260) {
-    //         query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
-    //     }
-    //     if (locationNear && distance) {
-    //         query.locationCoord = {
-    //             $nearSphere: {
-    //                 $geometry: {
-    //                     type: 'Point',
-    //                     coordinates: locationNear,
-    //                 },
-    //                 $maxDistance: distance
-    //             }
-    //         }
-    //     }
-    //     if (pagination.getAnchor()) {
-    //         query.updatedAt = { $lt: pagination.getAnchor() };
-    //     }
-    //     const result = await this.mongoSite.collection.find(query)
-    //         .sort({ updatedAt: -1 })
-    //         .skip(pagination.getSkip())
-    //         .limit(pagination.getLimit())
-    //         .toArray();
-    //     pagination.setMeta(result);
-    //     return result;
-    // }
-    // @RPCMethod('site.get')
-    // async get(
-    //     @Pick('id') id: ObjectId
-    // ) {
-    //     const result = await this.mongoSite.get(id);
-    //     return result;
-    // }
-    // @RPCMethod('site.gb2260.get')
-    // async getGB2260(
-    //     @Pick('granularity', { type: GB2260GRAN, default: GB2260GRAN.CITY }) gb2260Granularity: GB2260GRAN,
-    //     @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
-    // ) {
-    //     const query: any = {};
-    //     if (type) {
-    //         query.type = { $in: type };
-    //     }
-    //     let gb2260SubstrLength = 4;
-    //     switch (gb2260Granularity) {
-    //         case GB2260GRAN.PROVINCE: {
-    //             gb2260SubstrLength = 2;
-    //             break;
-    //         }
-    //         case GB2260GRAN.CITY: {
-    //             gb2260SubstrLength = 4;
-    //             break;
-    //         }
-    //         case GB2260GRAN.COUNTY: {
-    //             gb2260SubstrLength = 6;
-    //             break;
-    //         }
-    //         default: {
-    //             break;
-    //         }
-    //     }
-    //     const r = await this.mongoSite.collection.aggregate<{ _id: string }>([
-    //         { $match: query },
-    //         {
-    //             $group: {
-    //                 _id: { $substrBytes: ['$locationGB2260', 0, gb2260SubstrLength] }
-    //             }
-    //         },
-    //     ]).toArray();
-    //     const zeros = '000000';
-    //     const areaCodes = r.filter((x) => x._id).map((x) => x._id + zeros.substring(0, 6 - x._id.length));
-    //     let final;
-    //     switch (gb2260Granularity) {
-    //         case GB2260GRAN.PROVINCE: {
-    //             final = areaCodes.map((x) => this.gb2260.getProvince(x)).map((x) => _.omit(x, 'children'));
-    //             break;
-    //         }
-    //         case GB2260GRAN.CITY: {
-    //             final = areaCodes.map((x) => this.gb2260.getCity(x)).map((x) => _.omit(x, 'children'));
-    //             break;
-    //         }
-    //         case GB2260GRAN.COUNTY: {
-    //             final = areaCodes.map((x) => this.gb2260.getCounty(x)).map((x) => _.omit(x, 'children'));
-    //             break;
-    //         }
-    //         default: {
-    //             break;
-    //         }
-    //     }
-    //     return final;
 }

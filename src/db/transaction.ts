@@ -5,18 +5,20 @@ import { ObjectId } from "mongodb";
 import { currencyAmount } from '../app/validators';
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
+import { WXPAY_TRADE_STATE } from '../services/wechat/dto/wx-pay-common';
 
 
 export enum TRANSACTION_STATUS {
     CREATED = 'Created',
 
     PAYMENT_PENDING = 'Unpaid',
-    PAYMENT_SUCCEED = 'Paid',
+    PAYMENT_SUCCEEDED = 'Paid',
 
     COMPLETED = 'Completed',
     REFUNDED = 'Refunded',
 
     CLOSED = 'Closed',
+    ERRORED = 'Errored'
 }
 
 export enum TRANSACTION_PROGRESS {
@@ -42,6 +44,65 @@ export enum TRANSACTION_REASON {
     GOODS_PURCHASE = 'goodsPurchase',
     MEMBERSHIP_PURCHASE = 'membershipPurchase',
 
+}
+export function mapWxTradeStateToTransactionProgress(state: WXPAY_TRADE_STATE): TRANSACTION_PROGRESS {
+
+    switch (state) {
+        case WXPAY_TRADE_STATE.SUCCESS: {
+            return TRANSACTION_PROGRESS.COMPLETED;
+        }
+        case WXPAY_TRADE_STATE.NOTPAY: {
+            return TRANSACTION_PROGRESS.INITIATED;
+        }
+        case WXPAY_TRADE_STATE.USERPAYING: {
+            return TRANSACTION_PROGRESS.IN_PROGRESS;
+        }
+        case WXPAY_TRADE_STATE.REFUND: {
+            return TRANSACTION_PROGRESS.REFUND_IN_PROGRESS;
+        }
+        case WXPAY_TRADE_STATE.REVOKED: {
+            return TRANSACTION_PROGRESS.REFUNDED;
+        }
+        case WXPAY_TRADE_STATE.CLOSED: {
+            return TRANSACTION_PROGRESS.CLOSED;
+        }
+        case WXPAY_TRADE_STATE.PAYERROR: {
+            return TRANSACTION_PROGRESS.ERRORED;
+        }
+
+        default: {
+            return TRANSACTION_PROGRESS.INITIATED;
+        }
+    }
+}
+
+export function mapWxTransactionProgressToTransactionStatus(state: TRANSACTION_PROGRESS): TRANSACTION_STATUS {
+
+    switch (state) {
+        case TRANSACTION_PROGRESS.REFUND_IN_PROGRESS:
+        case TRANSACTION_PROGRESS.COMPLETED: {
+            return TRANSACTION_STATUS.PAYMENT_SUCCEEDED;
+        }
+
+        case TRANSACTION_PROGRESS.IN_PROGRESS:
+        case TRANSACTION_PROGRESS.INITIATED: {
+            return TRANSACTION_STATUS.PAYMENT_PENDING;
+        }
+
+        case TRANSACTION_PROGRESS.REFUNDED: {
+            return TRANSACTION_STATUS.REFUNDED;
+        }
+        case TRANSACTION_PROGRESS.CLOSED: {
+            return TRANSACTION_STATUS.CLOSED;
+        }
+        case TRANSACTION_PROGRESS.ERRORED: {
+            return TRANSACTION_STATUS.ERRORED;
+        }
+
+        default: {
+            return TRANSACTION_STATUS.CREATED;
+        }
+    }
 }
 
 @Also({ dictOf: Object })
@@ -79,9 +140,6 @@ export class WxSpecificTransactionDetails extends AutoCastable {
     @Prop()
     completedAt?: Date;
 
-    @Prop()
-    wxMsgTemplateId?: string;
-
     toWxTransactionCreationDto() {
 
         const partial: any = {
@@ -91,10 +149,6 @@ export class WxSpecificTransactionDetails extends AutoCastable {
                 openid: this.openId
             }
         };
-
-        if (this.expireAt) {
-            partial.time_expire = this.expireAt;
-        }
 
         return partial;
     }
@@ -121,11 +175,18 @@ export class Transaction extends AutoCastable {
 
     @Prop({ required: true, validate: currencyAmount })
     currencyAmount!: number;
+
     @Prop({ default: CURRENCY.CNY })
     currencyType!: CURRENCY;
 
     @Prop({ default: TRANSACTION_STATUS.CREATED, type: TRANSACTION_STATUS })
     status!: TRANSACTION_STATUS;
+
+    @Prop()
+    targetId?: ObjectId;
+
+    @Prop()
+    targetType?: string;
 
     @Prop({ default: [] })
     tags!: string[];
@@ -135,6 +196,9 @@ export class Transaction extends AutoCastable {
 
     @Prop()
     updatedAt?: Date;
+
+    @Prop()
+    expireAt?: Date;
 
     createWxTransactionCreationDto(draft?: Partial<WxSpecificTransactionDetails>) {
         if (draft) {
@@ -156,6 +220,10 @@ export class Transaction extends AutoCastable {
             currency: this.currencyType
         };
 
+        if (this.expireAt) {
+            partial.time_expire = this.expireAt;
+        }
+
         return partial;
     }
 }
@@ -164,6 +232,14 @@ export class Transaction extends AutoCastable {
 @singleton()
 export class MongoTransaction extends MongoCollection<Transaction> {
     collectionName = 'transactions';
+    typeclass = Transaction;
+
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 
 }
 

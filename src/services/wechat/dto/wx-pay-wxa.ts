@@ -27,7 +27,7 @@ export class WxPayCreateTransactionDto extends AutoCastable {
     attach?: string;
 
     @Prop({ required: true, validate: validNotifyUrl, desc: '异步接收微信支付结果通知的回调地址，通知url必须为外网可访问的url，不能携带参数。 公网域名必须为https，如果是走专线接入，使用专线NAT IP或者私有回调域名可使用http' })
-    notify_url!: URL;
+    notify_url!: URL | string;
 
     @Prop({ validate: length(1, 32), desc: '订单优惠标记' })
     goods_tag?: string;

@@ -59,8 +59,10 @@ export class MongoLiveConfig extends MongoCollection<Config, string> {
     }
 
     override async init() {
-        await super.init();
-
+        await this.dependencyReady();
+        this.mongo.on('crippled', () => this.emit('crippled'));
+        this.collection = this.mongo.db.collection(this.collectionName);
+        
         const subscription = await this.catchUp(...(this.subscriptionKeys || []));
 
         subscription.on('error', () => this.emit('crippled'));

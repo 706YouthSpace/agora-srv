@@ -1,6 +1,8 @@
 import { AutoCastable, Prop } from '@naiverlabs/tskit';
 import _ from 'lodash';
 import { ObjectId } from "mongodb";
+import { X706ObjectStorage } from '../services/object-storage/x706';
+import InjectProperty from '../services/property-injector';
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
 
@@ -46,13 +48,32 @@ export class Site extends AutoCastable {
 
     @Prop()
     updatedAt?: Date;
+
+    @InjectProperty()
+    __x706ObjectStorage!: X706ObjectStorage;
+
+
+    toTransferDto() {
+        return {
+            ...this,
+            image: this.__x706ObjectStorage.getResourceUrl(this.image),
+            images: this.images?.map((image) => this.__x706ObjectStorage.getResourceUrl(image)),
+        }
+    }
 }
 
 
 @singleton()
 export class MongoSite extends MongoCollection<Site> {
     collectionName = 'sites';
+    typeclass = Site;
 
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 }
 
 

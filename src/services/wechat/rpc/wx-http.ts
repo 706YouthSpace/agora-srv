@@ -16,6 +16,12 @@ export class WxPlatformError extends ApplicationError {
         }
     }
 }
+export interface WxClientAuthorizedMsg {
+    appId: string;
+    code: string;
+    expiresBefore: number;
+    preAuthCode: string;
+}
 
 const RETRY_INTERVAL_MS = 1500;
 const RETRY_TIMES = 2;
@@ -911,55 +917,26 @@ export class WxHTTP extends HTTPService {
         return result.data;
     }
 
-    async wxoSendTemplateMessage(
-        accessToken: string,
-        templateId: string,
-        toUserOpenId: string,
-        token: string,
-        data: object,
-        emphasizedKeyword?: string,
-        wxaref?: string,
+    async wxoSendTemplateMessage(accessToken: string,
+        query: {
+            templateId: string,
+            toUserOpenId: string,
+            data: { [k: string]: { value: any } },
+            page?: string,
+            wxaref?: string,
+            targetWxaBranch?: string,
+            lang?: string
+        }
     ) {
 
         const qObj: any = {
-            template_id: templateId, touser: toUserOpenId,
-            form_id: token,
-            data
+            template_id: query.templateId,
+            touser: query.toUserOpenId,
+            data: query.data,
+            page: query.page,
+            miniprogram_state: query.targetWxaBranch ?? 'formal',
+            lang: query.lang ?? 'zh_CN'
         };
-        if (wxaref) {
-            qObj.page = wxaref;
-        }
-        if (emphasizedKeyword) {
-            qObj.emphasis_keyword = emphasizedKeyword;
-        }
-        const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
-            '/cgi-bin/message/wxopen/template/send',
-            { access_token: accessToken },
-            qObj
-        );
-
-        return result.data;
-    }
-
-    async wxSendTempMsgNew(
-        accessToken: string,
-        templateId: string,
-        toUserOpenId: string,
-        miniprogram_state: string,
-        lang:string,
-        page:string,
-        data: object
-    ) {
-
-        const qObj: any = {
-            template_id: templateId, 
-            touser: toUserOpenId,
-            miniprogram_state: miniprogram_state,
-            lang:lang,
-            page:page,
-            data
-        };
-        
         const result = await this.postJsonWithSearchParams<inf.WeChatErrorReceipt>(
             '/cgi-bin/message/subscribe/send',
             { access_token: accessToken },

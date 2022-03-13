@@ -14,7 +14,7 @@ export class FileRecord extends AutoCastable {
     _id!: ObjectId;
 
     @Prop({ required: true })
-    owner!: ObjectId;
+    ownerId!: ObjectId;
 
     @Prop({ type: FILE_OWNER_TYPE, default: FILE_OWNER_TYPE.USER })
     ownerType!: FILE_OWNER_TYPE;
@@ -46,11 +46,17 @@ export class FileRecord extends AutoCastable {
     blocked?: boolean;
 }
 
-
 @singleton()
 export class MongoFile extends MongoCollection<FileRecord> {
     collectionName = 'files';
+    typeclass = FileRecord;
 
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 }
 
 

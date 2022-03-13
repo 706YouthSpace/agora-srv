@@ -227,6 +227,29 @@ export class WxPaySettleInfoDto extends AutoCastable {
     profit_sharing?: boolean;
 }
 
+export class WxPayNotificationDto extends AutoCastable {
+    @Prop({ required: true, desc: '通知的唯一ID' })
+    id!: string;
+
+    @Prop({ required: true, desc: '通知创建的时间，遵循rfc3339标准格式' })
+    create_time!: Date;
+
+    @Prop({ required: true, desc: '通知的类型' })
+    event_type!: string;
+
+    @Prop({ required: true, desc: '通知的资源数据类型' })
+    resource_type!: string;
+
+    @Prop({ required: true, desc: '通知资源数据', dictOf: Object })
+    resource!: { [k: string]: any };
+
+    @Prop({ required: true, validate: purchaseAmount, desc: '用户购买的数量' })
+    quantity!: number;
+
+    @Prop({ required: true, validate: currencyAmount, desc: '商品单价，单位为分' })
+    unit_price!: number;
+
+}
 
 export enum WXPAY_TRADE_TYPE {
     JSAPI = 'JSAPI',             //公众号支付

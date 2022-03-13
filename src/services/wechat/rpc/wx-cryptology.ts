@@ -194,12 +194,13 @@ export function wxPayDecryptAEAD(data: Buffer, key: Buffer, iv: Buffer, assocDat
     });
 
     const authTag = data.slice(-tagLength);
+    const actualData = data.slice(0, -tagLength);
 
     decipher.setAutoPadding(true);
     decipher.setAuthTag(authTag);
     decipher.setAAD(assocData);
 
-    const buff1 = decipher.update(data);
+    const buff1 = decipher.update(actualData);
 
     const buff2 = decipher.final();
 
@@ -219,14 +220,19 @@ export function wxPayDecryptJSONObject(obj: WxPayAEADEncryptedJSONObject, key: s
         throw new Error('Unsupported algorithm, what year is it ?');
     }
 
-    const r = JSON.parse(
-        wxPayDecryptAEAD(
-            Buffer.from(obj.ciphertext, 'base64'),
-            Buffer.from(key, 'utf-8'),
-            Buffer.from(obj.nonce, 'utf-8'),
-            Buffer.from(obj.associated_data || '', 'utf-8')
-        ).toString()
-    );
+    const decrypted = wxPayDecryptAEAD(
+        Buffer.from(obj.ciphertext, 'base64'),
+        Buffer.from(key, 'utf-8'),
+        Buffer.from(obj.nonce, 'utf-8'),
+        Buffer.from(obj.associated_data || '', 'utf-8')
+    ).toString();
+
+    let r;
+    try {
+        r = JSON.parse(decrypted);
+    } catch (err) {
+        r = decrypted;
+    }
 
     if (typeof r === 'object') {
         r['original_type'] = obj.original_type;
@@ -237,11 +243,12 @@ export function wxPayDecryptJSONObject(obj: WxPayAEADEncryptedJSONObject, key: s
 
 
 export function wxPaySign(data: Buffer, key: KeyObject) {
-// As of Sep. 2021, WxPay APIv3 Sign means WECHATPAY2-SHA256-RSA2048
+    // As of Sep. 2021, WxPay APIv3 Sign means WECHATPAY2-SHA256-RSA2048
 
     const sign = createSign('sha256');
 
     sign.update(data);
+    sign.end();
 
     const signature = sign.sign(key);
 
@@ -257,7 +264,7 @@ export function wxPayOAEPEncrypt(data: Buffer, key: KeyObject) {
     return publicEncrypt({ key, padding: RSA_PKCS1_OAEP_PADDING }, data);
 }
 
-export function wxPayRSASha256Vefify(data:Buffer, pubKey: KeyObject, signature: Buffer) {
+export function wxPayRSASha256Vefify(data: Buffer, pubKey: KeyObject, signature: Buffer) {
 
     const verify = createVerify('sha256');
 

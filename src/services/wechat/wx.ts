@@ -4,7 +4,7 @@ import xml2js from 'xml2js';
 
 import { AsyncService, Defer } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
-import { WxHTTP } from "./rpc/wx-http";
+import { WxClientAuthorizedMsg, WxHTTP } from "./rpc/wx-http";
 import { WxPayHTTP } from "./rpc/wx-pay";
 
 import { Config } from '../../config';
@@ -17,8 +17,8 @@ import {
     wxMiniProgramDecryptB64,
     wxMiniProgramSignatureSha1
 } from "./rpc/wx-cryptology";
-import { WxClientAuthorizedMsg } from "./wx-platform";
 import { WxPayCreateTransactionDto } from "./dto/wx-pay-wxa";
+import { MongoLiveConfig } from "../../db/live-config";
 
 export interface WxConfig {
     appId: string;
@@ -50,22 +50,37 @@ export class WxService extends AsyncService {
     wxConfig!: WxConfig;
     wxPayConfig!: WxPayConfig;
 
+    accessToken!: string;
+
     constructor(
         protected config: Config,
+        protected liveConfig: MongoLiveConfig,
     ) {
         super(...arguments);
 
         this.wxPlatform = new WxHTTP();
+
+        const tokenWatcher = this.liveConfig.watch(this.wxaConfigKey);
+
+        tokenWatcher.on('changed', (doc) => {
+            this.accessToken = doc.accessToken;
+        });
 
         this.init().catch((err) => {
             this.emit('error', err);
         });
     }
 
+    get wxaConfigKey() {
+        return `wxa.${this.config.get('wechat.appId')}`;
+    }
+
     async init() {
         await this.dependencyReady();
 
         this.wxConfig = this.config.wechat;
+
+        this.accessToken = this.liveConfig.localGet(this.wxaConfigKey)?.accessTokens;
 
         this.wxPayConfig = this.config.get('wechat.pay') as {
             mchId: string;
@@ -298,5 +313,13 @@ export class WxService extends AsyncService {
         }
 
         return undefined;
+    }
+
+    wxPaySign(pkg: { [k: string]: any }) {
+        return this.wxPay.signWxaPayment(this.wxConfig.appId, pkg)
+    }
+
+    wxaLogin(code: string) {
+        return this.wxPlatform.wxaLogin(code, this.wxConfig.appId, this.wxConfig.appSecret);
     }
 }

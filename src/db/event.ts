@@ -4,6 +4,8 @@ import { ObjectId } from "mongodb";
 import { AutoCastable, Prop } from '@naiverlabs/tskit';
 
 import { MongoCollection } from './base';
+import { X706ObjectStorage } from '../services/object-storage/x706';
+import InjectProperty from '../services/property-injector';
 
 export enum PersonalInfo {
     NAME = 'name',
@@ -99,6 +101,19 @@ export class Event extends AutoCastable {
         arrayOf: String
     })
     wxMsgTemplateIds?: string[];
+
+    @InjectProperty()
+    __x706ObjectStorage!: X706ObjectStorage;
+
+
+    toTransferDto() {
+        return {
+            ...this,
+            image: this.__x706ObjectStorage.getResourceUrl(this.image),
+            images: this.images?.map((image) => this.__x706ObjectStorage.getResourceUrl(image)),
+            qrImage: this.__x706ObjectStorage.getResourceUrl(this.qrImage),
+        }
+    }
 }
 
 
@@ -106,6 +121,13 @@ export class Event extends AutoCastable {
 export class MongoEvent extends MongoCollection<Event> {
     collectionName = 'events';
     typeclass = Event;
+
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 }
 
 

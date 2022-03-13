@@ -19,15 +19,19 @@ export class App extends AsyncService {
         public rpcSite: SiteRPCHost,
         public rpcActivityTag: ActivityTagRPCHost,
         public rpcFileUpload: FileUploadRPCHost,
-        public rpcEvent: EventRPCHost
+        public rpcEvent: EventRPCHost,
     ) {
         super(...arguments);
 
-        this.dependencyReady().then(() => this.emit('ready'));
+        this.init().catch((err) => {
+            this.emit('error', err);
+        });
     }
 
-    load() {
-        return this.dependencyReady();
+    override async init() {
+        await this.dependencyReady();
+
+        this.emit('ready');
     }
 
 }

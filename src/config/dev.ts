@@ -36,18 +36,14 @@ export const config = {
             keyPath: "/data/apiclientCert/apiclient_key.pem",
         }
     },
-    seed: {
-        sessionHasher: "x706",
-        urlSigningHasher: "x706"
-    },
-    storage: {
-        sha256Root: "/data/sha256storage",
-        sha256OSS: {
-            region: "oss-cn-beijing",
-            bucket: "naiverlabs-sha256",
-            accessKeyId: "LTAI4Fh8FdN94xQdVeqMYS4t",
-            accessKeySecret: "pSLE2PjlYpE07tbE9fM5FZ3BnXFqja"
-        }
+    aliyun: {
+        user: 'wxa-server@706er.onaliyun.com',
+        accessKey: 'LTAI5tNuUwcL8snboU3q2Me6',
+        accessSecret: 'bRjbKctCcpZvNxochGau9X7cAcIwVj',
+
+        ossEndpint: 'oss-cn-beijing.aliyuncs.com',
+        ossBucket: 'x706'
+        // ossInternal: 'x706.oss-cn-beijing-internal.aliyuncs.com',
     }
 };
 

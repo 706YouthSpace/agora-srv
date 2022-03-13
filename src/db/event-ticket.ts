@@ -14,7 +14,6 @@ export enum TICKET_STATUS {
 
 }
 export class EventTicket extends AutoCastable {
-
     @Prop({ defaultFactory: () => new ObjectId() })
     _id!: ObjectId;
 
@@ -54,6 +53,14 @@ export class EventTicket extends AutoCastable {
 @singleton()
 export class MongoEventTicket extends MongoCollection<EventTicket> {
     collectionName = 'eventTicket';
+    typeclass = EventTicket;
+
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 
 }
 

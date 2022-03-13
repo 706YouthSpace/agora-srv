@@ -38,7 +38,6 @@ export abstract class MongoDB extends AbstractMongoDB {
                 this.emit('ready', this.client);
             });
 
-            return this.client;
         } catch (err) {
             this.emit('error', err);
 

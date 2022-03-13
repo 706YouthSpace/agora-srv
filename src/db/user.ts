@@ -43,12 +43,27 @@ export class User extends AutoCastable {
 
     @Prop()
     updatedAt?: Date;
-}
 
+    toTransferDto() {
+
+        return {
+            ...this,
+            passwordHash: undefined
+        }
+    }
+}
 
 @singleton()
 export class MongoUser extends MongoCollection<User> {
     collectionName = 'users';
+    typeclass = User;
+
+    constructor() {
+        super(...arguments);
+
+        this.init()
+            .catch((err) => this.emit('error', err));
+    }
 
     findOneByWxOpenId(appId: string, wxOpenId: string) {
         return this.collection.findOne({ [`wxOpenId.${appId}`]: wxOpenId });
