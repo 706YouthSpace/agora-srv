@@ -78,3 +78,4 @@ export class MongoSite extends MongoCollection<Site> {
 
 
 export const mongoSite = container.resolve(MongoSite);
+export default mongoSite;

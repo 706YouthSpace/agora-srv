@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { ObjectId } from "mongodb";
+import { ClientSession, ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
 import { AutoCastable, Prop, Also } from '@naiverlabs/tskit';
 
@@ -18,6 +18,9 @@ export class Session extends AutoCastable {
 
     @Prop()
     updatedAt?: Date;
+    
+    @Prop()
+    expireAt?: Date;
 }
 
 
@@ -37,7 +40,26 @@ export class MongoSession extends MongoCollection<Session> {
         return this.deleteOne({ _id });
     }
 
+    override async createIndexes(options?: { session?: ClientSession | undefined; }): Promise<void> {
+        const indexExpireAtTTL = 'expireAtTTL';
+        if (!await this.collection.indexExists(indexExpireAtTTL)) {
+            await this.collection.createIndex(
+                {
+                    expireAt: 1
+                },
+                {
+                    name: indexExpireAtTTL,
+                    session: options?.session,
+                    background: true,
+                    sparse: true,
+                    expireAfterSeconds: 0,
+                }
+            );
+        }
+    }
+
 }
 
 
 export const mongoSession = container.resolve(MongoSession);
+export default mongoSession;

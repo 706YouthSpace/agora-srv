@@ -1,7 +1,7 @@
 import { Also, AutoCastable, Prop } from '@naiverlabs/tskit';
 import { randomUUID } from 'crypto';
 import _ from 'lodash';
-import { ObjectId } from "mongodb";
+import { ClientSession, ObjectId } from "mongodb";
 import { currencyAmount } from '../app/validators';
 import { singleton, container } from 'tsyringe';
 import { MongoCollection } from './base';
@@ -241,7 +241,40 @@ export class MongoTransaction extends MongoCollection<Transaction> {
             .catch((err) => this.emit('error', err));
     }
 
+    override async createIndexes(options?: { session?: ClientSession | undefined; }): Promise<void> {
+        const indexSortByFromUserId = 'sortByFromUserId';
+        if (!await this.collection.indexExists(indexSortByFromUserId)) {
+            await this.collection.createIndex(
+                {
+                    fromUserId: 1
+                },
+                {
+                    name: indexSortByFromUserId,
+                    session: options?.session,
+                    background: true,
+                    sparse: true,
+                }
+            );
+        }
+
+        const indexSortByTargetId = 'sortByTargetId';
+        if (!await this.collection.indexExists(indexSortByTargetId)) {
+            await this.collection.createIndex(
+                {
+                    targetId: 1
+                },
+                {
+                    name: indexSortByTargetId,
+                    session: options?.session,
+                    background: true,
+                    sparse: true,
+                }
+            );
+        }
+    }
+
 }
 
 
 export const mongoTransaction = container.resolve(MongoTransaction);
+export default mongoTransaction;

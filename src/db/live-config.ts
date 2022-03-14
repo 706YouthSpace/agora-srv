@@ -6,7 +6,7 @@ import { ChangeStreamDocument, ChangeStream, ClientSession } from 'mongodb';
 import { vectorize } from '@naiverlabs/tskit';
 import { MongoCollection } from './base';
 
-export interface Config {
+export interface LiveConfig {
     _id: string;
     __lockedBy?: string;
     __lockedUntil?: Date;
@@ -19,10 +19,10 @@ export interface Config {
 }
 
 @singleton()
-export class MongoLiveConfig extends MongoCollection<Config, string> {
+export class MongoLiveConfig extends MongoCollection<LiveConfig, string> {
     collectionName = 'liveconfigs';
 
-    confMap: Map<string, Config> = new Map();
+    confMap: Map<string, LiveConfig> = new Map();
     emitters: Map<string, ConfigObjEventEmitter> = new Map();
 
     subscriptionKeys?: string[];
@@ -102,7 +102,7 @@ export class MongoLiveConfig extends MongoCollection<Config, string> {
         if (!r.ok) {
             throw r.lastErrorObject;
         }
-        return r.value! as Config;
+        return r.value! as LiveConfig;
     }
 
     async touch(_id: string, options?: { session?: ClientSession; }) {
@@ -125,7 +125,7 @@ export class MongoLiveConfig extends MongoCollection<Config, string> {
         if (!r.ok) {
             throw r.lastErrorObject;
         }
-        return r.value! as Config;
+        return r.value! as LiveConfig;
     }
 
 
@@ -221,8 +221,8 @@ export class MongoLiveConfig extends MongoCollection<Config, string> {
 }
 
 export interface MongoLiveConfig {
-    on(event: 'change', listener: (id: string, doc: Config, event: ChangeStreamDocument<Config>) => void): this;
-    on(event: 'remove', listener: (id: string, doc: Config, event: ChangeStreamDocument<Config>) => void): this;
+    on(event: 'change', listener: (id: string, doc: LiveConfig, event: ChangeStreamDocument<LiveConfig>) => void): this;
+    on(event: 'remove', listener: (id: string, doc: LiveConfig, event: ChangeStreamDocument<LiveConfig>) => void): this;
 
     on(event: 'ready', listener: () => void): this;
     on(event: 'crippled', listener: (err?: Error | any) => void): this;
@@ -231,8 +231,8 @@ export interface MongoLiveConfig {
 }
 
 export interface ConfigObjEventEmitter extends EventEmitter {
-    on(event: 'changed', listener: (doc: Config, event: ChangeStreamDocument<Config>) => void): this;
-    on(event: 'removed', listener: (doc: Config, event: ChangeStreamDocument<Config>) => void): this;
+    on(event: 'changed', listener: (doc: LiveConfig, event: ChangeStreamDocument<LiveConfig>) => void): this;
+    on(event: 'removed', listener: (doc: LiveConfig, event: ChangeStreamDocument<LiveConfig>) => void): this;
 
     on(event: string | symbol, listener: (...args: any[]) => void): this;
 
@@ -242,3 +242,4 @@ export interface ConfigObjEventEmitter extends EventEmitter {
 
 
 export const mongoConfig = container.resolve(MongoLiveConfig);
+export default mongoConfig;

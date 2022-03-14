@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "type": "npm",
+        "script": "build",
+        "group": "build",
+        "problemMatcher": [],
+        "label": "Npm Rebuild",
+        "detail": "Npm Rebuild"
+      },
+      {
+        "type": "typescript",
+        "tsconfig": "tsconfig.json",
+        "option": "watch",
+        "isBackground": true,
+        "problemMatcher": [
+          "$tsc-watch"
+        ],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "label": "Watch - src"
+      },
+      {
+        "type": "shell",
+        "command": "docker compose up",
+        "group": "none",
+        "problemMatcher": [],
+        "label": "Docker compose up",
+        "detail": "Docker compose up",
+        "isBackground": true
+      },
+      {
+        "label": "PrepareDevEnviroment",
+        "dependsOn": [
+          "Watch - src"
+        ]
+      }
+    ]
+  }
+  

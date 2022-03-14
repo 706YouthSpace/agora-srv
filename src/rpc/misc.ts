@@ -1,4 +1,4 @@
-import { RPCHost } from "@naiverlabs/tskit";
+import { ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { MongoLiveConfig } from "../db/live-config";
 import { Pick, RPCMethod } from "./civi-rpc";
@@ -30,10 +30,19 @@ export class MiscRPCHost extends RPCHost {
         return { wtf: 1, ...data };
     }
 
-    @RPCMethod('misc.getPredefined')
-    async getPredefined(@Pick('key', { required: true }) key: string) {
-        const r = await this.mongoLiveConfig.findOne({ _id: `predefined:${key}` })
+    @RPCMethod('predefined.get')
+    async getPredefinedEventTags(
+        @Pick('key', { required: true }) key: string,
+    ) {
 
-        return r;
+        const k = key.split(/[:.]/).join(':');
+
+        const r = this.mongoLiveConfig.localGet(`predefined:${k}`);
+
+        if (r === undefined) {
+            throw new ResourceNotFoundError(`predefined(${k})`);
+        }
+
+        return r?.data;
     }
 }

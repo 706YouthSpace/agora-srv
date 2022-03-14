@@ -1,6 +1,9 @@
 import { MongoSession } from "../../db/session";
 import { ObjectId } from "mongodb";
-import { Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta, Dto, AuthenticationRequiredError, AuthenticationFailedError } from "@naiverlabs/tskit";
+import {
+    Prop, RPC_CALL_ENVIROMENT, HMacManager, assignMeta,
+    Dto, AuthenticationRequiredError, AuthenticationFailedError
+} from "@naiverlabs/tskit";
 import { decodeBase64UrlSafe, encodeBase64UrlSafe } from "../../lib/binary";
 import { isIPv4 } from "net";
 import { IncomingMessage } from "http";
@@ -120,7 +123,6 @@ export class Session extends Dto<ContextLike> {
     }
 
     async save() {
-
         if (!this.data) {
             return;
         }

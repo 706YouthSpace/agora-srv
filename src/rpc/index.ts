@@ -5,7 +5,6 @@ import { GB2260RPCHost } from "./gb2260";
 import { MiscRPCHost } from "./misc";
 import { SiteRPCHost } from "./site";
 import { UserRPCHost } from "./user";
-import { ActivityTagRPCHost } from "./activityTag";
 import { FileUploadRPCHost } from "./file";
 
 
@@ -17,12 +16,10 @@ export class App extends AsyncService {
         public rpcUser: UserRPCHost,
         public rpcGb2260: GB2260RPCHost,
         public rpcSite: SiteRPCHost,
-        public rpcActivityTag: ActivityTagRPCHost,
         public rpcFileUpload: FileUploadRPCHost,
         public rpcEvent: EventRPCHost,
     ) {
         super(...arguments);
-
         this.init().catch((err) => {
             this.emit('error', err);
         });

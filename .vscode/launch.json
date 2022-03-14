@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug",
+            "program": "${workspaceFolder}/bin/server.js",
+            "request": "launch",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "pwa-node",
+            "console": "integratedTerminal",
+            "preLaunchTask": "PrepareDevEnviroment"
+        },
+        {
             "type": "node",
             "request": "launch",
             "name": "Launch Program",

@@ -9,7 +9,6 @@ import moment from 'moment';
 import { Pick, RPCMethod } from "./civi-rpc/civi-rpc";
 import { Event, EVENT_SENSOR_STATUS, MongoEvent } from "../db/event";
 import { CURRENCY, mapWxTradeStateToTransactionProgress, mapWxTransactionProgressToTransactionStatus, MongoTransaction, Transaction, TRANSACTION_PROGRESS, TRANSACTION_REASON, TRANSACTION_STATUS } from "../db/transaction";
-import { MongoWxTemplateMsgSubscription } from "../db/wx-template-msg-subscription";
 //import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
 //import { wxTempMsgSub } from "./dto/wxTempMsgSub";
@@ -48,7 +47,6 @@ export class EventRPCHost extends RPCHost {
         protected mongoEvent: MongoEvent,
         protected mongoEventTicket: MongoEventTicket,
         protected mongoTransaction: MongoTransaction,
-        protected mongoWxTemplateMsgSubscription: MongoWxTemplateMsgSubscription,
         protected gb2260: GB2260,
         protected mongoUser: MongoUser,
         protected mongoSite: MongoSite,
@@ -126,7 +124,7 @@ export class EventRPCHost extends RPCHost {
         @Pick('longitude') longitude?: number,
         @Pick('locationGB2260') locationGB2260?: string,
         @Pick('tag', { arrayOf: String }) tag?: string[],
-        @Pick('auth') auth?: boolean,
+        @Pick('verified') verified?: boolean,
     ) {
         const query: any = {};
         if (tag) {
@@ -143,8 +141,8 @@ export class EventRPCHost extends RPCHost {
         if (locationGB2260) {
             query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
         }
-        if (auth !== undefined) {
-            query.verified = Boolean(auth);
+        if (verified !== undefined) {
+            query.verified = Boolean(verified);
         }
 
         const events = await this.mongoEvent.simpleFind(
@@ -340,7 +338,7 @@ export class EventRPCHost extends RPCHost {
     @RPCMethod('ticket.pay')
     @RPCMethod('activity.askPay')
     async askPay(
-        @Pick('ticketId') ticketId: ObjectId,
+        @Pick('id') ticketId: ObjectId,
         session: Session
     ) {
         const user = await session.assertUser();

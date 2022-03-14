@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { ObjectId } from "mongodb";
+import { ClientSession, ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
 
 import { AutoCastable, Prop } from '@naiverlabs/tskit';
@@ -62,6 +62,40 @@ export class MongoEventTicket extends MongoCollection<EventTicket> {
             .catch((err) => this.emit('error', err));
     }
 
+    override async createIndexes(options?: { session?: ClientSession | undefined; }): Promise<void> {
+        const indexSortByUserId = 'sortByUserId';
+        if (!await this.collection.indexExists(indexSortByUserId)) {
+            await this.collection.createIndex(
+                {
+                    userId: 1
+                },
+                {
+                    name: indexSortByUserId,
+                    session: options?.session,
+                    background: true,
+                    sparse: true
+                }
+            );
+        }
+
+        const indexSortByEventId = 'sortByEventId';
+        if (!await this.collection.indexExists(indexSortByEventId)) {
+            await this.collection.createIndex(
+                {
+                    eventId: 1
+                },
+                {
+                    name: indexSortByEventId,
+                    session: options?.session,
+                    background: true,
+                    sparse: true
+                }
+            );
+        }
+    }
+
 }
 
 export const mongoSignUp = container.resolve(MongoEventTicket);
+
+export default mongoSignUp;

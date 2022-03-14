@@ -2,7 +2,7 @@ import {
     AbstractRPCRegistry, ApplicationError, AsyncService, extractMeta, FancyFile, LoggerInterface,
     mimeOf, restoreContentType, RPCHost, RPC_CALL_ENVIROMENT
 } from "@naiverlabs/tskit";
-import { container } from "tsyringe";
+import { container, singleton } from "tsyringe";
 
 import { Readable } from 'stream';
 import { Context, Middleware } from 'koa';
@@ -15,7 +15,7 @@ import { CORSAllowAllMiddleware } from "./cors";
 import bodyParser from "koa-bodyparser";
 import _ from "lodash";
 
-
+@singleton()
 export class RPCRegistry extends AbstractRPCRegistry {
     container = container;
 
@@ -261,7 +261,7 @@ export class RPCRegistry extends AbstractRPCRegistry {
     }
 }
 
-export interface BaseRPCRegistry {
+export interface RPCRegistry {
     on(event: 'run', listener: (name: string, input: {
         [RPC_CALL_ENVIROMENT]: any;
         [k: string]: any;

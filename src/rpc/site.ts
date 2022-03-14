@@ -9,7 +9,7 @@ import { MongoSite, Site, SITE_TYPE } from "../db/site";
 import { MongoEvent, EVENT_SENSOR_STATUS } from "../db/event";
 import { DraftSiteForCreation, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
-import { GB2260 } from "../lib/gb2260";
+import { GB2260, GB2260Node } from "../lib/gb2260";
 import { MongoUser } from "../db/user";
 
 enum GB2260GRAN {
@@ -62,8 +62,8 @@ export class SiteRPCHost extends RPCHost {
         return r;
     }
 
-    @RPCMethod('site.find')
-    async find(
+    @RPCMethod('site.list')
+    async list(
         pagination: Pagination,
         @Pick('name') name?: string,
         @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
@@ -152,7 +152,7 @@ export class SiteRPCHost extends RPCHost {
         };
     }
 
-    @RPCMethod('site.gb2260.get')
+    @RPCMethod('site.gb2260.list')
     async getGB2260(
         @Pick('granularity', { type: GB2260GRAN, default: GB2260GRAN.CITY }) gb2260Granularity: GB2260GRAN,
         @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
@@ -195,15 +195,27 @@ export class SiteRPCHost extends RPCHost {
         const zeros = '000000';
         const areaCodes = r.filter((x) => x._id).map((x) => x._id + zeros.substring(0, 6 - x._id.length));
 
-        let final;
-
+        let final: any[] | undefined;
+        console.log(areaCodes);
         switch (gb2260Granularity) {
             case GB2260GRAN.PROVINCE: {
-                final = areaCodes.map((x) => this.gb2260.getProvince(x)).map((x) => _.omit(x, 'children'));
+                final = areaCodes.map((x) => this.gb2260.getProvince(x)).map((x) => _.omit(x, 'children')) as GB2260Node[];
                 break;
             }
             case GB2260GRAN.CITY: {
-                final = areaCodes.map((x) => this.gb2260.getCity(x)).map((x) => _.omit(x, 'children'));
+                final = areaCodes.map((x) => {
+                    const city = this.gb2260.getCity(x);
+                    const province = this.gb2260.getProvince(x);
+
+                    if (city?.code.endsWith('0000')){
+                        return {
+                            ...city,
+                            name: `${province?.name || ''}${city?.name || ''}`
+                        }
+                    }
+
+                    return city;
+                }).map((x) => _.omit(x, 'children'));
                 break;
             }
             case GB2260GRAN.COUNTY: {

@@ -67,7 +67,9 @@ export class UserRPCHost extends RPCHost {
     ) {
         const user = await session.assertUser();
 
-        const patch: Partial<User> = {}
+        const patch: Partial<User> = {
+            updatedAt: new Date(),
+        }
         if (avatarUrl) {
             patch.avatar = avatarUrl.toString();
         }
@@ -77,7 +79,7 @@ export class UserRPCHost extends RPCHost {
         if (bio) {
             patch.bio = bio;
         }
-        const r = await this.mongoUser.updateOne({ _id: user._id }, { $set: patch, updatedAt: new Date() });
+        const r = await this.mongoUser.updateOne({ _id: user._id }, { $set: patch });
 
         return {
             ...r,
@@ -156,7 +158,7 @@ export class UserRPCHost extends RPCHost {
         return transactions;
     }
 
-    @RPCMethod('my.eventTicket.list')
+    @RPCMethod('my.ticket.list')
     async getMyEvent(
         session: Session,
         pagination: Pagination

@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { singleton, container } from 'tsyringe';
-import { ObjectId } from "mongodb";
+import { ClientSession, ObjectId } from "mongodb";
 import { AutoCastable, Prop } from '@naiverlabs/tskit';
 
 import { MongoCollection } from './base';
@@ -68,7 +68,7 @@ export class Event extends AutoCastable {
     @Prop()
     participantCap?: number;
 
-    @Prop()
+    @Prop({ validate: Number.isInteger })
     pricing?: number;
 
     @Prop({ default: [], arrayOf: String })
@@ -127,6 +127,38 @@ export class MongoEvent extends MongoCollection<Event> {
 
         this.init()
             .catch((err) => this.emit('error', err));
+    }
+
+    override async createIndexes(options?: { session?: ClientSession | undefined; }): Promise<void> {
+        const indexSortByStartAt = 'sortByStartAt';
+        if (!await this.collection.indexExists(indexSortByStartAt)) {
+            await this.collection.createIndex(
+                {
+                    startAt: 1
+                },
+                {
+                    name: indexSortByStartAt,
+                    session: options?.session,
+                    background: true,
+                    sparse: true
+                }
+            );
+        }
+
+        const indexSortByEndAt = 'sortByEndAt';
+        if (!await this.collection.indexExists(indexSortByEndAt)) {
+            await this.collection.createIndex(
+                {
+                    endAt: 1
+                },
+                {
+                    name: indexSortByEndAt,
+                    session: options?.session,
+                    background: true,
+                    sparse: true
+                }
+            );
+        }
     }
 }
 

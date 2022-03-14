@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { ObjectId } from "mongodb";
+import { ClientSession, ObjectId } from "mongodb";
 import { singleton, container } from 'tsyringe';
 import { AutoCastable, Prop } from '@naiverlabs/tskit';
 
@@ -13,8 +13,8 @@ export class FileRecord extends AutoCastable {
     @Prop({ defaultFactory: () => new ObjectId() })
     _id!: ObjectId;
 
-    @Prop({ required: true })
-    ownerId!: ObjectId;
+    @Prop()
+    ownerId?: ObjectId;
 
     @Prop({ type: FILE_OWNER_TYPE, default: FILE_OWNER_TYPE.USER })
     ownerType!: FILE_OWNER_TYPE;
@@ -57,7 +57,25 @@ export class MongoFile extends MongoCollection<FileRecord> {
         this.init()
             .catch((err) => this.emit('error', err));
     }
+
+    override async createIndexes(options?: { session?: ClientSession | undefined; }): Promise<void> {
+        const indexSortByOwnerId = 'sortByOwnerId';
+        if (!await this.collection.indexExists(indexSortByOwnerId)) {
+            await this.collection.createIndex(
+                {
+                    ownerId: 1
+                },
+                {
+                    name: indexSortByOwnerId,
+                    session: options?.session,
+                    background: true,
+                    sparse: true
+                }
+            );
+        }
+    }
 }
 
 
 export const mongoFile = container.resolve(MongoFile);
+export default mongoFile;

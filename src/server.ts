@@ -48,6 +48,7 @@ export class AppServer extends AsyncService {
 
         this.insertHealthCheckMiddleware(this.healthCheckEndpoint);
         this.insertLogRequestsMiddleware();
+        this.spinUpAPI();
 
         if (!this.config.get('debug')) {
             this.logger.debug('Debug disabled');

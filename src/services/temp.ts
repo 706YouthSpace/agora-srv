@@ -19,7 +19,7 @@ export class TempFileManager extends AbstractTempFileManger {
 
         await this.dependencyReady();
 
-        this.rootDir = this.config.get('tempRoot');
+        this.rootDir = this.config.get('tmpDir');
 
         await super.init();
 
