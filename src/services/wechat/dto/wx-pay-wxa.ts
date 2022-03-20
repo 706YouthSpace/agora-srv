@@ -1,6 +1,5 @@
 import { AutoCastable, Prop } from "@naiverlabs/tskit";
 import { length } from "../../../app/validators";
-import { URL } from "url";
 import { validNotifyUrl } from "../../../app/validators";
 import {
     WxPayPayerDto, WxPayDiscountDto, WxPaySceneDto,
@@ -31,7 +30,7 @@ export class WxPayCreateTransactionDto extends AutoCastable {
     attach?: string;
 
     @Prop({ required: true, validate: validNotifyUrl, desc: '异步接收微信支付结果通知的回调地址，通知url必须为外网可访问的url，不能携带参数。 公网域名必须为https，如果是走专线接入，使用专线NAT IP或者私有回调域名可使用http' })
-    notify_url!: URL | string;
+    notify_url!: string;
 
     @Prop({ validate: length(1, 32), desc: '订单优惠标记' })
     goods_tag?: string;
@@ -86,7 +85,7 @@ export class WxPayPaymentSucceedNotificationDto extends AutoCastable {
     @Prop({ validate: length(1, 128), desc: '附加数据，在查询API和支付通知中原样返回，可作为自定义参数使用' })
     attach?: string;
 
-    @Prop({ required: true, validate: validNotifyUrl, desc: '支付完成时间' })
+    @Prop({ required: true, desc: '支付完成时间' })
     notify_success_timeurl!: Date;
 
     @Prop({ required: true, desc: '订单金额信息' })
@@ -125,7 +124,7 @@ export class WxPayCreateRefundDto extends AutoCastable {
     reason!: string;
 
     @Prop({ required: true, validate: validNotifyUrl, desc: '异步接收微信支付退款结果通知的回调地址，通知url必须为外网可访问的url，不能携带参数。 如果参数中传了notify_url，则商户平台上配置的回调地址将不会生效，优先回调当前传的这个地址。' })
-    notify_url!: URL | string;
+    notify_url!: string;
 
     @Prop({ validate: length(1, 32), desc: '若传递此参数则使用对应的资金账户退款，否则默认使用未结算资金退款' })
     funds_account?: string;

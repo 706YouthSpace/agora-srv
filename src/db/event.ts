@@ -62,8 +62,8 @@ export class Event extends AutoCastable {
     @Prop()
     host?: ObjectId;
 
-    @Prop({ arrayOf: ObjectId, default: [] })
-    participants!: ObjectId[];
+    // @Prop({ arrayOf: ObjectId, default: [] })
+    // participants!: ObjectId[];
 
     @Prop()
     participantCap?: number;

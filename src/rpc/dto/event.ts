@@ -70,7 +70,7 @@ export class DraftEvent extends Dto {
     locationGB2260?: string;
 
     @Prop({ required: true })
-    site!: ObjectId;
+    siteId!: ObjectId;
 
     @Prop()
     participantCap?: number;

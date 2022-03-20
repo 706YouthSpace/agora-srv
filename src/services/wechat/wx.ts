@@ -25,10 +25,9 @@ export interface WxConfig {
     appSecret: string;
     aesEncryptionKey: string;
     signatureToken: string;
-    callbackBaseUri: string;
 
-    serviceHosts: string[];
-    webviewHosts: string[];
+    serviceHosts?: string[];
+    webviewHosts?: string[];
 }
 
 export interface WxPayConfig {

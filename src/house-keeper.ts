@@ -56,6 +56,20 @@ export class HouseKeeper extends AsyncService {
         this.logger.info('refreshLiveAccessToken succeeded');
     }
 
+    @Recurred('*/5 * * * *')
+    async markUnpaiedTicketsCancelled() {
+        this.logger.info('markUnpaiedTicketsCancelled in progress...');
+
+        const r = await this.mongoEventTicket.updateMany({
+            cancelAt: { $lte: new Date() },
+            status: TICKET_STATUS.PENDING_PAYMENT
+        }, {
+            $set: { status: TICKET_STATUS.CANCELLED }
+        });
+
+        this.logger.info(`markUnpaiedTicketsCancelled succeeded. ${r.modifiedCount} ticket cancelled.`);
+    }
+
 
     @Recurred('*/1 * * * *')
     @throttle()

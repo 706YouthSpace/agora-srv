@@ -86,10 +86,10 @@ export class EventRPCHost extends RPCHost {
 
         const now = new Date();
 
-        const site = await this.mongoSite.findOne({ _id: draft.site });
+        const site = await this.mongoSite.findOne({ _id: draft.siteId });
 
         if (!site) {
-            throw new ResourceNotFoundError(`Referenced resource not found: site(${draft.site})`);
+            throw new ResourceNotFoundError(`Referenced resource not found: site(${draft.siteId})`);
         }
 
         const event = Event.from<Event>({
@@ -99,6 +99,8 @@ export class EventRPCHost extends RPCHost {
             locationGB2260: site.locationGB2260,
             locationText: site.locationText,
             locationCoord: site.locationCoord,
+
+            siteId: site._id,
 
             createdAt: now,
             updatedAt: now,
@@ -125,7 +127,9 @@ export class EventRPCHost extends RPCHost {
         @Pick('longitude') longitude?: number,
         @Pick('locationGB2260') locationGB2260?: string,
         @Pick('tag', { arrayOf: String }) tag?: string[],
-        @Pick('verified') verified?: boolean,
+        @Pick('status', { default: 'passed' }) status?: string,
+        @Pick('creator') creatorId?: ObjectId,
+        @Pick('participant') participantId?: ObjectId,
     ) {
         const query: any = {};
         if (tag) {
@@ -142,8 +146,15 @@ export class EventRPCHost extends RPCHost {
         if (locationGB2260) {
             query.locationGB2260 = { $regex: new RegExp(`^${this.escapeRegExp(locationGB2260.trim().replace(/0+$/, ''))}`, 'gi') };
         }
-        if (verified !== undefined) {
-            query.verified = Boolean(verified);
+        if (status) {
+            query.status = status;
+        }
+        if (creatorId) {
+            query.creatorId = creatorId;
+        }
+        if (participantId) {
+            const tickets = await this.mongoEventTicket.simpleFind({ userId: participantId, status: { $nin: [TICKET_STATUS.CANCELLED, TICKET_STATUS.PENDING_PAYMENT] } })
+            query._id = { $in: tickets.map((x) => x.eventId) };
         }
 
         const events = await this.mongoEvent.simpleFind(
@@ -193,14 +204,16 @@ export class EventRPCHost extends RPCHost {
 
         const tickets = await this.mongoEventTicket.simpleFind({
             eventId,
-            status: { $in: [TICKET_STATUS.VALID, TICKET_STATUS.PENDING_PAYMENT] }
+            status: { $nin: [TICKET_STATUS.CANCELLED] }
         });
 
         const participants = await this.mongoUser.simpleFind({
             _id: { $in: tickets.map((t) => t.userId) }
         });
 
-        return participants.map((x) => User.from<User>(x).toTransferDto());
+        this.setResultMeta(tickets, { users: _.keyBy(participants, '_id') });
+
+        return tickets;
     }
 
 
@@ -245,7 +258,7 @@ export class EventRPCHost extends RPCHost {
         // const participants = await this.mongoSignUp.collection.find(query).toArray() ;
         const tickets = await this.mongoEventTicket.simpleFind({
             eventId: id,
-            status: { $in: [TICKET_STATUS.VALID, TICKET_STATUS.PENDING_PAYMENT] }
+            status: { $nin: [TICKET_STATUS.CANCELLED, TICKET_STATUS.PENDING_PAYMENT] }
         });
         const participants = await this.mongoUser.simpleFind({
             _id: { $in: tickets.map((t) => t.userId) }
@@ -253,6 +266,7 @@ export class EventRPCHost extends RPCHost {
             projection: {
                 nickName: true,
                 realName: true,
+                avatarUrl: true,
                 avatar: true,
                 bio: true
             }
@@ -266,7 +280,7 @@ export class EventRPCHost extends RPCHost {
             site: site ? await Site.from<Site>(site).toTransferDto() : undefined,
             creator: creator ? User.from<User>(creator).toTransferDto() : undefined,
             participants: participants.map((x) => User.from<User>(x).toTransferDto()),
-            participating: participants.some((x) => x._id.toHexString() === user._id.toHexString())
+            participating: user._id.equals(event.creatorId) || participants.some((x) => x._id.toHexString() === user._id.toHexString())
         }
     }
 
@@ -300,7 +314,7 @@ export class EventRPCHost extends RPCHost {
     async submitSignUp(
         session: Session,
         @Pick('id', { required: true }) eventId: ObjectId,
-        @Pick('info') infoObj?: { [k: string]: any },
+        @Pick('collectFromParticipant') infoObj?: { [k: string]: any },
         @Pick('wxTemplateMsgId') wxTempMsgId?: string,
     ) {
         const user = await session.assertUser();
@@ -332,11 +346,11 @@ export class EventRPCHost extends RPCHost {
             userId: user._id,
             eventId: event._id,
             needToPay,
-            info: infoObj,
+            collectFromParticipant: infoObj,
             status: needToPay ? TICKET_STATUS.PENDING_PAYMENT : TICKET_STATUS.VALID,
-
             wxAppId: this.config.get('wechat.appId'),
-            wxNotifyTemplateId: wxTempMsgId
+            wxNotifyTemplateId: wxTempMsgId,
+            cancelAt: new Date(Date.now() + 15 * 60 * 1000), 
         });
 
         const ticket = await this.mongoEventTicket.create(draftTicket);
@@ -429,7 +443,9 @@ export class EventRPCHost extends RPCHost {
             }
         });
 
-        await this.mongoTransaction.save(transactionObj);
+        const savedTransaction = await this.mongoTransaction.save(transactionObj);
+
+        await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { transactionId: savedTransaction._id } })
 
         const sig = this.wxService.wxPaySign({
             prepay_id: wxReply.prepay_id,
@@ -536,7 +552,7 @@ export class EventRPCHost extends RPCHost {
                     if (transaction?.targetId && transaction.targetType === this.mongoEventTicket.collectionName) {
                         const ticket = await this.mongoEventTicket.findOne({ _id: transaction.targetId });
                         if (ticket) {
-                            await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { status: TICKET_STATUS.VALID } }, { session });
+                            await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { status: TICKET_STATUS.VALID, updatedAt: new Date() } }, { session });
 
                             await this.mongoTransaction.updateOne({ _id: transaction._id }, { $set: { status: TRANSACTION_STATUS.COMPLETED, updatedAt: new Date() } }, { session });
                         }

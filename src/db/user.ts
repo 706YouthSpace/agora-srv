@@ -14,7 +14,7 @@ export class User extends AutoCastable {
         [appId: string]: string;
     };
 
-    @Prop({ arrayOf: String, required: true })
+    @Prop({ arrayOf: String, required: true, default: [] })
     wxUnionId!: string[];
 
     @Prop({ dictOf: Object })

@@ -10,8 +10,11 @@ export function length(min: number, max: number) {
     return func;
 }
 
-export function validNotifyUrl(val: URL) {
-    return val.protocol === 'https:' && val.toString().length <= 128;
+export function validNotifyUrl(val: string) {
+
+    const url = new URL(val);
+
+    return url.protocol === 'https:' && val.toString().length <= 128;
 }
 
 export function currencyAmount(val: number) {

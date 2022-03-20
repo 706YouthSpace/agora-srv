@@ -45,6 +45,8 @@ export class EventTicket extends AutoCastable {
     createdAt?: Date;
     @Prop()
     updatedAt?: Date;
+    @Prop()
+    cancelAt?: Date;
 }
 
 @singleton()

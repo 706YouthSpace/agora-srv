@@ -254,11 +254,11 @@ export class WxPayNotificationDto extends AutoCastable {
     @Prop({ required: true, desc: '通知资源数据', dictOf: Object })
     resource!: { [k: string]: any };
 
-    @Prop({ required: true, validate: purchaseAmount, desc: '用户购买的数量' })
-    quantity!: number;
+    @Prop({ validate: purchaseAmount, desc: '用户购买的数量' })
+    quantity?: number;
 
-    @Prop({ required: true, validate: currencyAmount, desc: '商品单价，单位为分' })
-    unit_price!: number;
+    @Prop({ validate: currencyAmount, desc: '商品单价，单位为分' })
+    unit_price?: number;
 
 }
 
