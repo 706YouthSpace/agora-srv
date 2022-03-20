@@ -2,7 +2,7 @@ import { AutoCastable, Prop } from "@naiverlabs/tskit";
 import { length } from "../../../app/validators";
 import { currencyAmount, purchaseAmount } from "../../../app/validators";
 
-export class WxPayAmoutDto extends AutoCastable {
+export class WxPayAmountDto extends AutoCastable {
     @Prop({ validate: currencyAmount, required: true, desc: '订单总金额，单位为分' })
     total!: number;
 
@@ -10,7 +10,18 @@ export class WxPayAmoutDto extends AutoCastable {
     currency?: string;
 }
 
-export class WxPayAmoutNotificationDto extends AutoCastable {
+export class WxPayRefundAmountDto extends AutoCastable {
+    @Prop({ validate: currencyAmount, required: true, desc: '订单总金额，单位为分' })
+    refund!: number;
+    
+    @Prop({ validate: currencyAmount, required: true, desc: '订单总金额，单位为分' })
+    total!: number;
+
+    @Prop({ validate: length(1, 16), default: 'CNY', desc: 'CNY：人民币，境内商户号仅支持人民币。' })
+    currency?: string;
+}
+
+export class WxPayAmountNotificationDto extends AutoCastable {
     @Prop({ validate: currencyAmount, required: true, desc: '订单总金额，单位为分' })
     total!: number;
 

@@ -226,6 +226,27 @@ export class Transaction extends AutoCastable {
 
         return partial;
     }
+
+    createWxTransactionRefundDto(reason?: string) {
+        if (!this.wxPay) {
+            throw new Error('No wxPay details found');
+        }
+
+        const partial: any = {};
+        if (this.wxPay.wxTransactionId) {
+            partial.transaction_id = this.wxPay.wxTransactionId;
+        }
+        partial.out_trade_no = this._id.toHexString();
+        partial.out_refund_no = this._id.toHexString();
+        partial.reason = reason || this.title;
+        partial.amount = {
+            refund: this.currencyAmount,
+            total: this.currencyAmount,
+            currency: this.currencyType
+        };
+
+        return partial;
+    }
 }
 
 

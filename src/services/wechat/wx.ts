@@ -17,7 +17,7 @@ import {
     wxMiniProgramDecryptB64,
     wxMiniProgramSignatureSha1
 } from "./rpc/wx-cryptology";
-import { WxPayCreateTransactionDto } from "./dto/wx-pay-wxa";
+import { WxPayCreateRefundDto, WxPayCreateTransactionDto } from "./dto/wx-pay-wxa";
 import { MongoLiveConfig } from "../../db/live-config";
 
 export interface WxConfig {
@@ -119,6 +119,15 @@ export class WxService extends AsyncService {
         }
 
         return this.wxPay.createTransactionJSAPI(params);
+    }
+
+    createWxPayRefund(input: Partial<WxPayCreateRefundDto>) {
+        const params = {
+            notify_url: this.wxPayConfig.notifyUrl,
+            ...input
+        }
+
+        return this.wxPay.createRefund(params);
     }
 
     async parseIncomingXmlString(xmlString: string) {

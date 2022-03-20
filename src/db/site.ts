@@ -13,6 +13,30 @@ export enum SITE_TYPE {
     PUBLIC_PLACES = 'public',
     PRIVATE_PLACES = 'private'
 }
+
+export class LocationProps extends AutoCastable {
+    @Prop({
+        required: true
+    })
+    country!: string;
+
+    @Prop({
+        required: true
+    })
+    province!: string;
+
+    @Prop({
+        required: true
+    })
+    city!: string;
+
+    @Prop()
+    district?: string;
+
+    @Prop()
+    town?: string;
+}
+
 export class Site extends AutoCastable {
     @Prop({ defaultFactory: () => new ObjectId() })
     _id!: ObjectId;
@@ -37,6 +61,9 @@ export class Site extends AutoCastable {
     @Prop()
     locationGB2260?: string;
 
+    @Prop()
+    locationProps?: LocationProps;
+
     @Prop({ default: [], arrayOf: String })
     tags!: string[];
 
@@ -53,11 +80,11 @@ export class Site extends AutoCastable {
     __x706ObjectStorage!: X706ObjectStorage;
 
 
-    toTransferDto() {
+    async toTransferDto() {
         return {
             ...this,
-            image: this.__x706ObjectStorage.getResourceUrl(this.image),
-            images: this.images?.map((image) => this.__x706ObjectStorage.getResourceUrl(image)),
+            image: await this.__x706ObjectStorage.getResourceUrl(this.image),
+            images: await Promise.all((this.images || []).map((image) => this.__x706ObjectStorage.getResourceUrl(image))),
         }
     }
 }

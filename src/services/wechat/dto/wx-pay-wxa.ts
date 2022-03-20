@@ -2,7 +2,11 @@ import { AutoCastable, Prop } from "@naiverlabs/tskit";
 import { length } from "../../../app/validators";
 import { URL } from "url";
 import { validNotifyUrl } from "../../../app/validators";
-import { WxPayAmoutDto, WxPayPayerDto, WxPayDiscountDto, WxPaySceneDto, WxPaySettleInfoDto, WXPAY_TRADE_TYPE, WXPAY_TRADE_STATE, WxPayAmoutNotificationDto } from "./wx-pay-common";
+import {
+    WxPayPayerDto, WxPayDiscountDto, WxPaySceneDto,
+    WxPaySettleInfoDto, WXPAY_TRADE_TYPE, WXPAY_TRADE_STATE,
+    WxPayAmountNotificationDto, WxPayAmountDto, WxPayRefundAmountDto
+} from "./wx-pay-common";
 
 export class WxPayCreateTransactionDto extends AutoCastable {
     @Prop({
@@ -33,7 +37,7 @@ export class WxPayCreateTransactionDto extends AutoCastable {
     goods_tag?: string;
 
     @Prop({ required: true, desc: '订单金额信息' })
-    amount!: WxPayAmoutDto;
+    amount!: WxPayAmountDto;
 
     @Prop({ required: true, desc: '支付者信息' })
     payer!: WxPayPayerDto;
@@ -86,7 +90,7 @@ export class WxPayPaymentSucceedNotificationDto extends AutoCastable {
     notify_success_timeurl!: Date;
 
     @Prop({ required: true, desc: '订单金额信息' })
-    amount!: WxPayAmoutNotificationDto;
+    amount!: WxPayAmountNotificationDto;
 
     @Prop({ required: true, desc: '支付者信息' })
     payer!: WxPayPayerDto;
@@ -94,4 +98,38 @@ export class WxPayPaymentSucceedNotificationDto extends AutoCastable {
     @Prop({ arrayOf: WxPayDiscountDto, desc: '优惠功能, 享受优惠时返回该字段' })
     promotion_detail?: WxPayDiscountDto[];
 
+}
+
+
+export class WxPayCreateRefundDto extends AutoCastable {
+    @Prop({
+        validate: length(1, 32),
+        desc: `原支付交易对应的微信订单号`
+    })
+    transaction_id?: string;
+
+    @Prop({
+        required: true,
+        validate: length(6, 32),
+        desc: `原支付交易对应的商户订单号`
+    })
+    out_trade_no!: string;
+
+    @Prop({
+        validate: length(1, 64),
+        desc: `商户系统内部的退款单号，商户系统内部唯一，只能是数字、大小写字母_-|*@ ，同一退款单号多次请求只退一笔。`
+    })
+    out_refund_no?: string;
+
+    @Prop({ validate: length(1, 80), desc: '若商户传入，会在下发给用户的退款消息中体现退款原因' })
+    reason!: string;
+
+    @Prop({ required: true, validate: validNotifyUrl, desc: '异步接收微信支付退款结果通知的回调地址，通知url必须为外网可访问的url，不能携带参数。 如果参数中传了notify_url，则商户平台上配置的回调地址将不会生效，优先回调当前传的这个地址。' })
+    notify_url!: URL | string;
+
+    @Prop({ validate: length(1, 32), desc: '若传递此参数则使用对应的资金账户退款，否则默认使用未结算资金退款' })
+    funds_account?: string;
+
+    @Prop({ required: true, desc: '订单金额信息' })
+    amount!: WxPayRefundAmountDto;
 }

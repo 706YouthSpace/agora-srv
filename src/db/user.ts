@@ -27,6 +27,8 @@ export class User extends AutoCastable {
     @Prop({ type: [ObjectId, String] })
     avatar?: string | ObjectId;
     @Prop()
+    avatarUrl?: string;
+    @Prop()
     bio?: string;
 
     @Prop()
@@ -101,6 +103,9 @@ export class MongoUser extends MongoCollection<User> {
     }
 
     upsertByWxOpenId(appId: string, wxOpenId: string, wxUnionId?: string) {
+        if (!wxOpenId) {
+            throw new Error('wxOpenId is required');
+        }
         const now = new Date();
         const query: UpdateFilter<User> = wxUnionId ? {
             $set: {

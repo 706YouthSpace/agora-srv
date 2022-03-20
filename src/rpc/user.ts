@@ -71,7 +71,7 @@ export class UserRPCHost extends RPCHost {
             updatedAt: new Date(),
         }
         if (avatarUrl) {
-            patch.avatar = avatarUrl.toString();
+            patch.avatarUrl = avatarUrl.toString();
         }
         if (nickName) {
             patch.nickName = nickName;
@@ -83,7 +83,7 @@ export class UserRPCHost extends RPCHost {
 
         return {
             ...r,
-            avatarUrl: user.avatar,
+            avatar: user.avatar,
             nickName: user.nickName,
             bio: user.bio,
         }

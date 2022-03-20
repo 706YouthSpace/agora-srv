@@ -106,12 +106,12 @@ export class Event extends AutoCastable {
     __x706ObjectStorage!: X706ObjectStorage;
 
 
-    toTransferDto() {
+    async toTransferDto() {
         return {
             ...this,
-            image: this.__x706ObjectStorage.getResourceUrl(this.image),
-            images: this.images?.map((image) => this.__x706ObjectStorage.getResourceUrl(image)),
-            qrImage: this.__x706ObjectStorage.getResourceUrl(this.qrImage),
+            image: await this.__x706ObjectStorage.getResourceUrl(this.image),
+            images: await Promise.all((this.images || [])?.map((image) => this.__x706ObjectStorage.getResourceUrl(image))),
+            qrImage: await this.__x706ObjectStorage.getResourceUrl(this.qrImage),
         }
     }
 }

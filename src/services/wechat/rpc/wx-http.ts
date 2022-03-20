@@ -842,7 +842,8 @@ export class WxHTTP extends HTTPService {
                 secret: appSecret,
                 js_code: code,
                 grant_type: 'authorization_code'
-            }
+            },
+            { responseType: 'json' }
         );
 
         return result.data;

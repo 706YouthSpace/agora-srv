@@ -3,7 +3,7 @@ import { KeyObject, randomBytes, X509Certificate } from "crypto";
 import _ from "lodash";
 import { Readable } from "stream";
 import { wxPayDecryptJSONObject, wxPayOAEPDecrypt, wxPayOAEPEncrypt, wxPayRSASha256Vefify, wxPaySign } from "./wx-cryptology";
-import { WxPayCreateTransactionDto } from "../dto/wx-pay-wxa";
+import { WxPayCreateRefundDto, WxPayCreateTransactionDto } from "../dto/wx-pay-wxa";
 import { stringify as formDataStringify } from 'querystring';
 import { APPLICATION_ERROR } from "../../errors";
 
@@ -197,6 +197,14 @@ export class WxPayHTTP extends HTTPService<HTTPServiceConfig, WxPayRequestOption
         const r = await this.postJson('/v3/pay/transactions/jsapi', dto);
 
         return r.data as { prepay_id: string };
+    }
+
+    async createRefund(options: Partial<WxPayCreateRefundDto>) {
+        const dto = WxPayCreateRefundDto.from<WxPayCreateRefundDto>(options);
+
+        const r = await this.postJson('/v3/refund/domestic/refunds', dto);
+
+        return r.data as { refund_id: string };
     }
 
     signWxaPayment(appId: string, wxPayPkg: { [k: string]: any }) {

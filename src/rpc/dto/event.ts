@@ -112,12 +112,6 @@ export class DraftEvent extends Dto {
     verified?: EVENT_SENSOR_STATUS;
 
     @Prop({
-        type: ObjectId,
-        required: true
-    })
-    creator!: ObjectId
-
-    @Prop({
         arrayOf: String,
         default: []
     })

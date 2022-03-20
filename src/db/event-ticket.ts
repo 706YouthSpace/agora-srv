@@ -27,10 +27,7 @@ export class EventTicket extends AutoCastable {
     transactionId?: ObjectId;
 
     @Prop({ dictOf: Object, default: {} })
-    info!: { [key: string]: any };
-
-    @Prop({ default: false })
-    paid!: boolean;
+    collectFromParticipant!: { [key: string]: any };
 
     @Prop({ default: false })
     needToPay!: boolean;

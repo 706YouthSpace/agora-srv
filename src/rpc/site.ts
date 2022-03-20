@@ -1,4 +1,4 @@
-import { RequestedEntityNotFoundError, RPCHost } from "@naiverlabs/tskit";
+import { RequestedEntityNotFoundError, ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { ObjectId } from "bson";
 import { URL } from "url";
@@ -7,12 +7,15 @@ import _ from "lodash";
 import { Pick, RPCMethod } from "./civi-rpc";
 import { MongoSite, Site, SITE_TYPE } from "../db/site";
 import { MongoEvent, EVENT_SENSOR_STATUS } from "../db/event";
-import { DraftSiteForCreation, wxGcj02LongitudeLatitude } from "./dto/site";
+import { DraftSite, DraftSiteForCreation, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
-import { GB2260, GB2260Node } from "../lib/gb2260";
+import { GB2260 } from "../lib/gb2260";
 import { MongoUser } from "../db/user";
+import { AMapHTTP } from "../services/amap";
+import { Config } from "../config";
 
 enum GB2260GRAN {
+    COUNTRY = 'country',
     PROVINCE = 'province',
     CITY = 'city',
     COUNTY = 'county'
@@ -21,11 +24,14 @@ enum GB2260GRAN {
 @singleton()
 export class SiteRPCHost extends RPCHost {
 
+    aMapRPC!: AMapHTTP;
+
     constructor(
         protected mongoSite: MongoSite,
         protected gb2260: GB2260,
         protected mongoEvent: MongoEvent,
-        protected mongoUser: MongoUser
+        protected mongoUser: MongoUser,
+        protected config: Config
     ) {
         super(...arguments);
 
@@ -34,6 +40,12 @@ export class SiteRPCHost extends RPCHost {
 
     async init() {
         await this.dependencyReady();
+
+        this.aMapRPC = new AMapHTTP({
+            key: this.config.get('amap.key'),
+            secret: this.config.get('amap.secret')
+        });
+
         this.emit('ready');
     }
 
@@ -55,9 +67,52 @@ export class SiteRPCHost extends RPCHost {
 
     @RPCMethod('site.create')
     async create(draft: DraftSiteForCreation) {
+        if (draft.locationCoord) {
+            const location = await this.aMapRPC.regeo(draft.locationCoord);
+            if (!draft.locationText) {
+                draft.locationText = location.regeocode.formatted_address!;
+            };
+            (draft as any).locationProps = {
+                ..._.pick(location.regeocode.addressComponent, ['country', 'province', 'city', 'district']),
+                town: location.regeocode.addressComponent.township
+            }
+            if (!draft.locationGB2260) {
+                draft.locationGB2260 = location.regeocode.addressComponent.adcode;
+            }
+        }
         const site = Site.from<Site>(draft);
 
         const r = await this.mongoSite.create(site);
+
+        return r;
+    }
+
+    @RPCMethod('site.update')
+    async update(
+        @Pick('_id') id: ObjectId,
+        draft: DraftSite
+    ) {
+        const origSite = await this.mongoSite.findOne({ _id: id });
+        if (!origSite) {
+            throw new ResourceNotFoundError(`Site ${id} not found`);
+        }
+        const coord = draft.locationCoord || origSite.locationCoord;
+        if (coord) {
+            const location = await this.aMapRPC.regeo(coord);
+            if (!draft.locationText) {
+                draft.locationText = location.regeocode.formatted_address!;
+            };
+            (draft as any).locationProps = {
+                ..._.pick(location.regeocode.addressComponent, ['country', 'province', 'city', 'district']),
+                town: location.regeocode.addressComponent.township
+            }
+            if (!draft.locationGB2260) {
+                draft.locationGB2260 = location.regeocode.addressComponent.adcode;
+            }
+        }
+        const site = Site.from<Site>({ ...origSite, ...draft, updatedAt: new Date() });
+
+        const r = await this.mongoSite.save(site);
 
         return r;
     }
@@ -109,9 +164,6 @@ export class SiteRPCHost extends RPCHost {
             }
         }
 
-        if (pagination.getAnchor()) {
-            query.updatedAt = { $lt: pagination.getAnchor() };
-        }
         const result = await this.mongoSite.collection.find(query)
             .sort({ updatedAt: -1 })
             .skip(pagination.getSkip())
@@ -152,7 +204,7 @@ export class SiteRPCHost extends RPCHost {
         };
     }
 
-    @RPCMethod('site.gb2260.list')
+    @RPCMethod('site.listLocationAdm')
     async getGB2260(
         @Pick('granularity', { type: GB2260GRAN, default: GB2260GRAN.CITY }) gb2260Granularity: GB2260GRAN,
         @Pick('type', { arrayOf: SITE_TYPE }) type?: SITE_TYPE[],
@@ -163,19 +215,31 @@ export class SiteRPCHost extends RPCHost {
             query.type = { $in: type };
         }
 
-        let gb2260SubstrLength = 4;
+        let groupBy: any = {
 
+        };
+        let trimZeros = 2;
         switch (gb2260Granularity) {
             case GB2260GRAN.PROVINCE: {
-                gb2260SubstrLength = 2;
+                groupBy.country = `$locationProps.country`;
+                groupBy.province = `$locationProps.province`;
+                trimZeros = 4;
                 break;
             }
             case GB2260GRAN.CITY: {
-                gb2260SubstrLength = 4;
+                groupBy.country = `$locationProps.country`;
+                groupBy.province = `$locationProps.province`;
+                groupBy.city = `$locationProps.city`;
+                trimZeros = 2;
                 break;
             }
             case GB2260GRAN.COUNTY: {
-                gb2260SubstrLength = 6;
+
+                groupBy.country = `$locationProps.country`;
+                groupBy.province = `$locationProps.province`;
+                groupBy.city = `$locationProps.city`;
+                groupBy.district = `$locationProps.district`;
+                trimZeros = 0;
                 break;
             }
             default: {
@@ -183,49 +247,25 @@ export class SiteRPCHost extends RPCHost {
             }
         }
 
-        const r = await this.mongoSite.collection.aggregate<{ _id: string }>([
+        const r = await this.mongoSite.collection.aggregate<any>([
             { $match: query },
             {
                 $group: {
-                    _id: { $substrBytes: ['$locationGB2260', 0, gb2260SubstrLength] }
+                    _id: groupBy,
+                    locationGB2260: { $first: '$locationGB2260' }
                 }
             },
+            {
+                $sort: { _id: 1 }
+            }
         ]).toArray();
 
-        const zeros = '000000';
-        const areaCodes = r.filter((x) => x._id).map((x) => x._id + zeros.substring(0, 6 - x._id.length));
+        const final = r.filter((x)=> x._id?.country && x._id?.province).map((x) => {
 
-        let final: any[] | undefined;
-        console.log(areaCodes);
-        switch (gb2260Granularity) {
-            case GB2260GRAN.PROVINCE: {
-                final = areaCodes.map((x) => this.gb2260.getProvince(x)).map((x) => _.omit(x, 'children')) as GB2260Node[];
-                break;
-            }
-            case GB2260GRAN.CITY: {
-                final = areaCodes.map((x) => {
-                    const city = this.gb2260.getCity(x);
-                    const province = this.gb2260.getProvince(x);
+            const name = `${x._id.province || ''}${(x._id.city === x._id.province ? '' : x._id.city) || ''}${x._id.district || ''}`
 
-                    if (city?.code.endsWith('0000')){
-                        return {
-                            ...city,
-                            name: `${province?.name || ''}${city?.name || ''}`
-                        }
-                    }
-
-                    return city;
-                }).map((x) => _.omit(x, 'children'));
-                break;
-            }
-            case GB2260GRAN.COUNTY: {
-                final = areaCodes.map((x) => this.gb2260.getCounty(x)).map((x) => _.omit(x, 'children'));
-                break;
-            }
-            default: {
-                break;
-            }
-        }
+            return { name: name, code: x.locationGB2260?.replace(new RegExp(`\\d{${trimZeros}}$`), '000000').slice(0,6) }
+        }).filter((x) => x.name);
 
         return final;
     }

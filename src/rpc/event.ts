@@ -23,6 +23,7 @@ import { WxService } from "../services/wechat/wx";
 import { WxPayNotificationDto } from "../services/wechat/dto/wx-pay-common";
 
 import globalLogger from '../services/logger';
+import { ResourceSoldOutError } from "../services/errors";
 
 
 // enum GB2260GRAN {
@@ -156,7 +157,7 @@ export class EventRPCHost extends RPCHost {
             }
         );
 
-        const mapped = events.map((x) => Event.from<Event>(x).toTransferDto());
+        const mapped = await Promise.all(events.map((x) => Event.from<Event>(x).toTransferDto()));
 
         const sites = await this.mongoSite.simpleFind(
             {
@@ -166,7 +167,7 @@ export class EventRPCHost extends RPCHost {
                 }
             }
         );
-        const sitesMapped = sites.map((x) => Site.from<Site>(x).toTransferDto());
+        const sitesMapped = await Promise.all(sites.map((x) => Site.from<Site>(x).toTransferDto()));
 
         pagination.setMeta(events, { sites: sitesMapped, total: await this.mongoEvent.count(query) });
 
@@ -192,10 +193,7 @@ export class EventRPCHost extends RPCHost {
 
         const tickets = await this.mongoEventTicket.simpleFind({
             eventId,
-            $or: [
-                { paid: true },
-                { needToPay: false }
-            ]
+            status: { $in: [TICKET_STATUS.VALID, TICKET_STATUS.PENDING_PAYMENT] }
         });
 
         const participants = await this.mongoUser.simpleFind({
@@ -246,11 +244,8 @@ export class EventRPCHost extends RPCHost {
         }
         // const participants = await this.mongoSignUp.collection.find(query).toArray() ;
         const tickets = await this.mongoEventTicket.simpleFind({
-            eventId: event._id,
-            $or: [
-                { paid: true },
-                { needToPay: false }
-            ]
+            eventId: id,
+            status: { $in: [TICKET_STATUS.VALID, TICKET_STATUS.PENDING_PAYMENT] }
         });
         const participants = await this.mongoUser.simpleFind({
             _id: { $in: tickets.map((t) => t.userId) }
@@ -267,8 +262,8 @@ export class EventRPCHost extends RPCHost {
         const creator = await this.mongoUser.findOne({ _id: event.creatorId });
 
         return {
-            ...Event.from<Event>(event).toTransferDto(),
-            site: site ? Site.from<Site>(site).toTransferDto() : undefined,
+            ...await Event.from<Event>(event).toTransferDto(),
+            site: site ? await Site.from<Site>(site).toTransferDto() : undefined,
             creator: creator ? User.from<User>(creator).toTransferDto() : undefined,
             participants: participants.map((x) => User.from<User>(x).toTransferDto()),
             participating: participants.some((x) => x._id.toHexString() === user._id.toHexString())
@@ -316,6 +311,21 @@ export class EventRPCHost extends RPCHost {
             throw new ResourceNotFoundError(`Referenced resource not found: event(${eventId})`);
         }
 
+        const now = new Date();
+
+        if (event.endAt <= now) {
+            throw new OperationNotAllowedError(`Operation not allowed: no ticket for ended event(${eventId})`);
+        }
+
+        const n = await this.mongoEventTicket.count({
+            eventId: event._id,
+            status: { $in: [TICKET_STATUS.VALID, TICKET_STATUS.PENDING_PAYMENT] },
+        });
+
+        if (n >= (event.participantCap || Infinity)) {
+            throw new ResourceSoldOutError(`Ticket sold out: event(${eventId})`);
+        }
+
         const needToPay = (event.pricing || 0) > 0;
 
         const draftTicket = EventTicket.from<EventTicket>({
@@ -357,7 +367,7 @@ export class EventRPCHost extends RPCHost {
         }
 
         if (!ticket.needToPay || !event.pricing || event.pricing <= 0) {
-            const validTicket = this.mongoEventTicket.updateOne({ _id: ticketId }, { $set: { status: TICKET_STATUS.VALID } });
+            const validTicket = await this.mongoEventTicket.updateOne({ _id: ticketId }, { $set: { status: TICKET_STATUS.VALID } });
 
             return validTicket;
         }
@@ -379,7 +389,7 @@ export class EventRPCHost extends RPCHost {
                 title: `活动门票: ${event.title} - ${ticket._id}`,
                 reason: TRANSACTION_REASON.EVENT_TICKET_PURCHASE,
                 fromUserId: user._id,
-                pricing: event.pricing,
+                currencyAmount: event.pricing,
                 currencyType: CURRENCY.CNY,
                 status: TRANSACTION_STATUS.CREATED,
                 targetId: ticket._id,
@@ -431,6 +441,58 @@ export class EventRPCHost extends RPCHost {
         }
     }
 
+    @RPCMethod('ticket.refund')
+    async refundTicket(
+        @Pick('id') ticketId: ObjectId,
+        session: Session
+    ) {
+        const user = await session.assertUser();
+
+        const ticket = await this.mongoEventTicket.findOne({ _id: ticketId });
+        if (!ticket) {
+            throw new ResourceNotFoundError(`Referenced resource not found: ticket(${ticketId})`);
+        }
+        const event = await this.mongoEvent.findOne({ _id: ticket.eventId });
+        if (!ticket.userId.equals(user._id) && (!user.isAdmin && !user._id.equals(event?.creatorId as any))) {
+            throw new OperationNotAllowedError(`Operation not allowed: ticket.refund(${ticketId})`);
+        }
+
+        if (!ticket.needToPay) {
+            const cancelledTicket = await this.mongoEventTicket.updateOne({ _id: ticketId }, { $set: { status: TICKET_STATUS.CANCELLED } });
+
+            return cancelledTicket;
+        }
+
+        if (!ticket.transactionId) {
+            throw new ResourceNotFoundError(`Could not find the transaction for ticket(${ticketId})`);
+        }
+
+        const transaction = await this.mongoTransaction.findOne({ _id: ticket.transactionId });
+
+        if (!transaction) {
+            if (!transaction) {
+                throw new ResourceNotFoundError(`Referenced resource not found: transaction(${ticket.transactionId})`);
+            }
+        }
+
+        const transactionObj = Transaction.from<Transaction>({
+            ...transaction
+        });
+
+
+        const wxRefund = await this.wxService.createWxPayRefund(transactionObj.createWxTransactionRefundDto());
+
+        const newTransaction = await this.mongoTransaction.updateOne({ _id: transactionObj._id }, {
+            $set: {
+                'wxPay.progress': TRANSACTION_PROGRESS.REFUND_IN_PROGRESS,
+                'wxPay.wxResult.wxRefund': wxRefund,
+                updatedAt: new Date()
+            }
+        });
+
+        return newTransaction;
+    }
+
     @RPCMethod('wxpay.notify')
     async wxpayNotify(
         wxPayNotification: WxPayNotificationDto
@@ -447,33 +509,73 @@ export class EventRPCHost extends RPCHost {
             }
         }
 
-        switch (wxPayNotification.event_type) {
-            case 'TRANSACTION.SUCCESS': {
-                const now = new Date();
-                const transaction = await this.mongoTransaction.updateOne(
-                    { _id: new ObjectId(resource.out_trade_no), status: { $ne: TRANSACTION_STATUS.PAYMENT_SUCCEEDED } },
-                    {
-                        $set: {
-                            'wxPay.wxTransactionId': resource.transaction_id,
-                            'wxPay.progress': mapWxTradeStateToTransactionProgress(resource.trade_state),
-                            'wxPay.completedAt': new Date(resource.success_time),
-                            'wxPay.updatedAt': now,
-                            [`wxPay.wxResult.${wxPayNotification.id}`]: { ...wxPayNotification, resource },
+        const now = new Date();
 
-                            status: mapWxTransactionProgressToTransactionStatus(mapWxTradeStateToTransactionProgress(resource.trade_state)),
-                            updatedAt: now,
+        const eventType = wxPayNotification.event_type.split('.')[0];
+
+        switch (eventType) {
+            case 'TRANSACTION': {
+                await this.mongoTransaction.withTransaction(async (session) => {
+                    const transaction = await this.mongoTransaction.updateOne(
+                        { _id: new ObjectId(resource!.out_trade_no), status: { $ne: TRANSACTION_STATUS.PAYMENT_SUCCEEDED } },
+                        {
+                            $set: {
+                                'wxPay.wxTransactionId': resource!.transaction_id,
+                                'wxPay.progress': mapWxTradeStateToTransactionProgress(resource!.trade_state),
+                                'wxPay.completedAt': new Date(resource!.success_time),
+                                'wxPay.updatedAt': now,
+                                [`wxPay.wxResult.${wxPayNotification.id}`]: { ...wxPayNotification, resource },
+
+                                status: mapWxTransactionProgressToTransactionStatus(mapWxTradeStateToTransactionProgress(resource!.trade_state)),
+                                updatedAt: now,
+                            }
+                        },
+                        { session }
+                    );
+
+                    if (transaction?.targetId && transaction.targetType === this.mongoEventTicket.collectionName) {
+                        const ticket = await this.mongoEventTicket.findOne({ _id: transaction.targetId });
+                        if (ticket) {
+                            await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { status: TICKET_STATUS.VALID } }, { session });
+
+                            await this.mongoTransaction.updateOne({ _id: transaction._id }, { $set: { status: TRANSACTION_STATUS.COMPLETED, updatedAt: new Date() } }, { session });
                         }
                     }
-                );
+                });
 
-                if (transaction?.targetId && transaction.targetType === this.mongoEventTicket.collectionName) {
-                    const ticket = await this.mongoEventTicket.findOne({ _id: transaction.targetId });
-                    if (ticket) {
-                        await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { status: TICKET_STATUS.VALID } });
+                break;
+            }
 
-                        await this.mongoTransaction.updateOne({ _id: transaction._id }, { $set: { status: TRANSACTION_STATUS.COMPLETED, updatedAt: new Date() } });
+            case 'REFUND': {
+
+                await this.mongoTransaction.withTransaction(async (session) => {
+                    const transaction = await this.mongoTransaction.updateOne(
+                        { _id: new ObjectId(resource!.out_trade_no), status: { $ne: TRANSACTION_STATUS.REFUNDED } },
+                        {
+                            $set: {
+                                'wxPay.wxTransactionId': resource!.transaction_id,
+                                'wxPay.progress': resource!.refund_status === 'SUCCESS' ? TRANSACTION_PROGRESS.REFUNDED : TRANSACTION_PROGRESS.ERRORED,
+                                'wxPay.completedAt': new Date(resource!.success_time),
+                                'wxPay.updatedAt': now,
+                                [`wxPay.wxResult.${wxPayNotification.id}`]: { ...wxPayNotification, resource },
+
+                                status: resource!.refund_status === 'SUCCESS' ? TRANSACTION_STATUS.REFUNDED : TRANSACTION_STATUS.ERRORED,
+                                updatedAt: now,
+                            }
+                        },
+                        { session }
+                    );
+
+                    if (transaction?.targetId && transaction.targetType === this.mongoEventTicket.collectionName) {
+                        const ticket = await this.mongoEventTicket.findOne({ _id: transaction.targetId });
+                        if (ticket) {
+                            await this.mongoEventTicket.updateOne({ _id: ticket._id }, { $set: { status: TICKET_STATUS.VALID } }, { session });
+
+                            await this.mongoTransaction.updateOne({ _id: transaction._id }, { $set: { status: TRANSACTION_STATUS.COMPLETED, updatedAt: new Date() } }, { session });
+                        }
                     }
-                }
+                });
+
 
                 break;
             }
