@@ -188,16 +188,19 @@ export class SiteRPCHost extends RPCHost {
     async get(
         @Pick('id') id: ObjectId
     ) {
-        const site = await this.mongoSite.get(id) as Site;
+        const siteMongo = await this.mongoSite.get(id) as Site;
 
-        if (!site) {
+        if (!siteMongo) {
             throw new RequestedEntityNotFoundError(`Site with id ${id} not found`);
         }
+
+        const site = await Site.from<Site>(siteMongo).toTransferDto();
 
         const eventQuery = {
             site: site._id,
             status: EVENT_STATUS.PASSED
         }
+        
         const events = await this.mongoEvent.simpleFind(eventQuery, {
             sort: { createdAt: -1 },
             limit: 20
