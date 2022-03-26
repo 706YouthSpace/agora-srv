@@ -20,10 +20,11 @@ export enum EVENT_TYPE {
     PRIVATE = 'private'
 }
 
-export enum EVENT_SENSOR_STATUS {
+export enum EVENT_STATUS {
     PENDING = 'pending',
+    REJECTED = 'rejected',
     PASSED = 'passed',
-    REJECTED = 'rejected'
+    EXPIRED = 'expired',
 }
 
 export class Event extends AutoCastable {
@@ -86,8 +87,8 @@ export class Event extends AutoCastable {
     @Prop({ required: true })
     endAt!: Date;
 
-    @Prop({ type: EVENT_SENSOR_STATUS, default: EVENT_SENSOR_STATUS.PENDING })
-    status!: EVENT_SENSOR_STATUS;
+    @Prop({ type: EVENT_STATUS, default: EVENT_STATUS.PENDING })
+    status!: EVENT_STATUS;
 
     @Prop()
     createdAt?: Date;

@@ -6,11 +6,11 @@ import _ from "lodash";
 
 import { Pick, RPCMethod } from "./civi-rpc";
 import { MongoSite, Site, SITE_TYPE } from "../db/site";
-import { MongoEvent, EVENT_SENSOR_STATUS } from "../db/event";
+import { MongoEvent, EVENT_STATUS, Event } from "../db/event";
 import { DraftSite, DraftSiteForCreation, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
 import { GB2260 } from "../lib/gb2260";
-import { MongoUser } from "../db/user";
+import { MongoUser, User } from "../db/user";
 import { AMapHTTP } from "../services/amap";
 import { Config } from "../config";
 import { Session } from "./dto/session";
@@ -91,7 +91,7 @@ export class SiteRPCHost extends RPCHost {
 
     @RPCMethod('site.update')
     async update(
-        session: Session, 
+        session: Session,
         @Pick('_id') id: ObjectId,
         draft: DraftSite
     ) {
@@ -196,19 +196,24 @@ export class SiteRPCHost extends RPCHost {
 
         const eventQuery = {
             site: site._id,
-            status: EVENT_SENSOR_STATUS.PASSED
+            status: EVENT_STATUS.PASSED
         }
-        const activities = await this.mongoEvent.simpleFind(eventQuery, {
+        const events = await this.mongoEvent.simpleFind(eventQuery, {
             sort: { createdAt: -1 },
             limit: 20
         });
+
+        const mapped = Promise.all(events.map((x) => Event.from<Event>(x).toTransferDto()));
+
+        
 
         const creator = site.creator ? await this.mongoUser.get(site.creator) : undefined;
 
         return {
             ...site,
-            activities,
-            creator
+            events: mapped,
+            activities: mapped,
+            creator: creator ? User.from<User>(creator).toTransferDto() : undefined
         };
     }
 

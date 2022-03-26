@@ -7,7 +7,7 @@ import { WxService } from './services/wechat/wx';
 import { MongoLiveConfig } from './db/live-config';
 import { Recurred, ScheduleService } from './services/schedule';
 import { MongoEventTicket, TICKET_STATUS } from './db/event-ticket';
-import { MongoEvent } from './db/event';
+import { EVENT_STATUS, MongoEvent } from './db/event';
 import { EventService } from './app/event';
 import globalLogger from './services/logger';
 import _ from 'lodash';
@@ -68,6 +68,20 @@ export class HouseKeeper extends AsyncService {
         });
 
         this.logger.info(`markUnpaiedTicketsCancelled succeeded. ${r.modifiedCount} ticket cancelled.`);
+    }
+
+    @Recurred('*/1 * * * *')
+    async markEventsExpiredBasedOnEndTime() {
+        this.logger.info('markEventsExpiredBasedOnEndTime in progress...');
+
+        const r = await this.mongoEvent.updateMany({
+            endAt: { $lte: new Date() },
+            status: EVENT_STATUS.PASSED
+        }, {
+            $set: { status: EVENT_STATUS.EXPIRED }
+        });
+
+        this.logger.info(`markEventsExpiredBasedOnEndTime succeeded. ${r.modifiedCount} events expired.`);
     }
 
 

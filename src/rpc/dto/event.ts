@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
 import { Prop, Dto } from "@naiverlabs/tskit"
-import { EVENT_SENSOR_STATUS, EVENT_TYPE } from "../../db/event";
+import { EVENT_STATUS, EVENT_TYPE } from "../../db/event";
 
 export function wxGcj02LongitudeLatitude(input: [number, number]) {
     if (input.length !== 2) {
@@ -106,10 +106,10 @@ export class DraftEvent extends Dto {
     endAt?: Date;
 
     @Prop({
-        type: EVENT_SENSOR_STATUS,
-        default: EVENT_SENSOR_STATUS.PENDING
+        type: EVENT_STATUS,
+        default: EVENT_STATUS.PENDING
     })
-    verified?: EVENT_SENSOR_STATUS;
+    verified?: EVENT_STATUS;
 
     @Prop({
         arrayOf: String,

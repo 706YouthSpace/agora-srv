@@ -7,7 +7,7 @@ import { ObjectId } from "mongodb";
 import moment from 'moment';
 
 import { Pick, RPCMethod } from "./civi-rpc/civi-rpc";
-import { Event, EVENT_SENSOR_STATUS, MongoEvent } from "../db/event";
+import { Event, EVENT_STATUS, MongoEvent } from "../db/event";
 import { CURRENCY, mapWxTradeStateToTransactionProgress, mapWxTransactionProgressToTransactionStatus, MongoTransaction, Transaction, TRANSACTION_PROGRESS, TRANSACTION_REASON, TRANSACTION_STATUS } from "../db/transaction";
 //import { DraftSiteForCreation, SITE_TYPE, wxGcj02LongitudeLatitude } from "./dto/site";
 import { Pagination } from "./dto/pagination";
@@ -127,11 +127,13 @@ export class EventRPCHost extends RPCHost {
         @Pick('longitude') longitude?: number,
         @Pick('locationGB2260') locationGB2260?: string,
         @Pick('tag', { arrayOf: String }) tag?: string[],
-        @Pick('status', { default: 'passed' }) status?: string,
+        @Pick('status') status?: string,
         @Pick('creator') creatorId?: ObjectId,
         @Pick('participant') participantId?: ObjectId,
     ) {
-        const query: any = {};
+        const query: any = {
+            status: { $in: [EVENT_STATUS.PASSED, EVENT_STATUS.EXPIRED] }
+        };
         if (tag) {
             query.tags = { $in: tag };
         }
@@ -163,6 +165,7 @@ export class EventRPCHost extends RPCHost {
                 skip: pagination.getSkip(),
                 limit: pagination.getLimit(),
                 sort: {
+                    status: -1,
                     startAt: -1
                 }
             }
@@ -303,7 +306,7 @@ export class EventRPCHost extends RPCHost {
 
         event = await this.mongoEvent.updateOne({
             _id: id,
-        }, { $set: { status: approved ? EVENT_SENSOR_STATUS.PASSED : EVENT_SENSOR_STATUS.REJECTED } });
+        }, { $set: { status: approved ? EVENT_STATUS.PASSED : EVENT_STATUS.REJECTED } });
 
         return event;
     }
@@ -350,7 +353,7 @@ export class EventRPCHost extends RPCHost {
             status: needToPay ? TICKET_STATUS.PENDING_PAYMENT : TICKET_STATUS.VALID,
             wxAppId: this.config.get('wechat.appId'),
             wxNotifyTemplateId: wxTempMsgId,
-            cancelAt: new Date(Date.now() + 15 * 60 * 1000), 
+            cancelAt: new Date(Date.now() + 15 * 60 * 1000),
         });
 
         const ticket = await this.mongoEventTicket.create(draftTicket);
