@@ -1,4 +1,4 @@
-import { RequestedEntityNotFoundError, ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
+import { OperationNotAllowedError, RequestedEntityNotFoundError, ResourceNotFoundError, RPCHost } from "@naiverlabs/tskit";
 import { singleton } from "tsyringe";
 import { ObjectId } from "bson";
 import { URL } from "url";
@@ -13,6 +13,7 @@ import { GB2260 } from "../lib/gb2260";
 import { MongoUser } from "../db/user";
 import { AMapHTTP } from "../services/amap";
 import { Config } from "../config";
+import { Session } from "./dto/session";
 
 enum GB2260GRAN {
     COUNTRY = 'country',
@@ -66,7 +67,8 @@ export class SiteRPCHost extends RPCHost {
     }
 
     @RPCMethod('site.create')
-    async create(draft: DraftSiteForCreation) {
+    async create(session: Session, draft: DraftSiteForCreation) {
+        const user = await session.assertUser();
         if (draft.locationCoord) {
             const location = await this.aMapRPC.regeo(draft.locationCoord);
             if (!draft.locationText) {
@@ -80,7 +82,7 @@ export class SiteRPCHost extends RPCHost {
                 draft.locationGB2260 = location.regeocode.addressComponent.adcode;
             }
         }
-        const site = Site.from<Site>(draft);
+        const site = Site.from<Site>({ ...draft, creator: user._id });
 
         const r = await this.mongoSite.create(site);
 
@@ -89,12 +91,17 @@ export class SiteRPCHost extends RPCHost {
 
     @RPCMethod('site.update')
     async update(
+        session: Session, 
         @Pick('_id') id: ObjectId,
         draft: DraftSite
     ) {
+        const user = await session.assertUser();
         const origSite = await this.mongoSite.findOne({ _id: id });
         if (!origSite) {
             throw new ResourceNotFoundError(`Site ${id} not found`);
+        }
+        if (!user._id.equals(origSite.creator || '') && !user.isAdmin) {
+            throw new OperationNotAllowedError(`Only creator or admin can do site.update`);
         }
         const coord = draft.locationCoord || origSite.locationCoord;
         if (coord) {
@@ -170,9 +177,11 @@ export class SiteRPCHost extends RPCHost {
             .limit(pagination.getLimit())
             .toArray();
 
+        const sitesMapped = await Promise.all(result.map((x) => Site.from<Site>(x).toTransferDto()));
+
         pagination.setMeta(result);
 
-        return result;
+        return sitesMapped;
     }
 
     @RPCMethod('site.get')
@@ -198,7 +207,6 @@ export class SiteRPCHost extends RPCHost {
 
         return {
             ...site,
-
             activities,
             creator
         };
@@ -260,11 +268,11 @@ export class SiteRPCHost extends RPCHost {
             }
         ]).toArray();
 
-        const final = r.filter((x)=> x._id?.country && x._id?.province).map((x) => {
+        const final = r.filter((x) => x._id?.country && x._id?.province).map((x) => {
 
             const name = `${x._id.province || ''}${(x._id.city === x._id.province ? '' : x._id.city) || ''}${x._id.district || ''}`
 
-            return { name: name, code: x.locationGB2260?.replace(new RegExp(`\\d{${trimZeros}}$`), '000000').slice(0,6) }
+            return { name: name, code: x.locationGB2260?.replace(new RegExp(`\\d{${trimZeros}}$`), '000000').slice(0, 6) }
         }).filter((x) => x.name);
 
         return final;
